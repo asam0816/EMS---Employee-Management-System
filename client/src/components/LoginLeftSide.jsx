@@ -8,8 +8,8 @@ const LoginLeftSide = () => {
 
       <div className="relative z-10 flex flex-col items-start justify-center p-12 lg:p-20 w-full h-full">
         <div>
-          <h1 className="text-4xl lg:text-5xl font-medium text-white mb-6 leading-tight tracking-tight">
-            Employee <br /> Management System
+          <h1 className="text-4xl lg:text-4xl font-medium text-white mb-6 leading-tight tracking-tight">
+            TechTitans <br /> Employee Management System
           </h1>
           <p className="text-slate-400 text-lg max-w-md leading-relaxed">
             Streamline your workforce operations, track attendance, manage payroll, and empower your team securely.
