@@ -12,7 +12,7 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setData(dummyEmployeeDashboardData); // 2. you imported dummyEmployee... but use dummyAdmin...
+    setData(dummyAdminDashboardData); // 2. you imported dummyEmployee... but use dummyAdmin...
     setTimeout(() => {
       setLoading(false);
     }, 1000);

@@ -9,7 +9,7 @@ const template1 = `
                     <p style="font-size: 16px;">If you have any questions, please contact your admin.</p>
                     <br />
                     <p style="font-size: 16px;">Best Regards,</p>
-                    <p style="font-size: 16px;">EMS</p>
+                    <p style="font-size: 16px;">TechTitansEMS</p>
                 </div>
             `
 
@@ -22,7 +22,7 @@ const template2 = `
                 <p style="font-size: 16px;">Please make sure to take action on this leave application.</p>
                 <br />
                 <p style="font-size: 16px;">Best Regards,</p>
-                <p style="font-size: 16px;">EMS</p>
+                <p style="font-size: 16px;">TechTitansEMS</p>
             </div>
         `
 
@@ -37,6 +37,6 @@ const template3 = `
                                 <p style="font-size: 14px; color: #666;">Department: ${emp.department}</p>
                                 <br />
                                 <p style="font-size: 16px;">Best Regards,</p>
-                                <p style="font-size: 16px;"><strong>QuickEMS</strong></p>
+                                <p style="font-size: 16px;"><strong>TechTitansEMS</strong></p>
                             </div>
                         `

@@ -11,7 +11,7 @@ import {
   DollarSign,
   Settings,
   ChevronRight,
-  LogOut,           // ← Add this
+  LogOut, // ← Add this
 } from "lucide-react";
 
 const Sidebar = () => {
@@ -29,7 +29,7 @@ const Sidebar = () => {
     setMobileOpen(false);
   }, [pathname]);
 
-  const role = "EMPLOYEE"; // change to "ADMIN" if needed
+  const role = "ADMIN"; // change to "ADMIN" if needed
 
   const navItems = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutGrid },
@@ -128,7 +128,10 @@ const Sidebar = () => {
 
       {/* Logout */}
       <div className="p-3 border-t border-white/6">
-        <button onClick={handleLogout} className="flex items-center gap-3 w-full px-3 py-2.5 rounded-md text-[13px] font-medium text-slate-400 hover:text-rose-400 hover:bg-rose-500/8 transition-all duration-150">
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-md text-[13px] font-medium text-slate-400 hover:text-rose-400 hover:bg-rose-500/8 transition-all duration-150"
+        >
           <LogOut className="w-[17px] h-[17px]" />
           <span>Log out</span>
         </button>
