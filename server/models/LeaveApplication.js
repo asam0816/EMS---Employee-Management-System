@@ -1,4 +1,4 @@
-import monoose from "mongoose";
+import mongoose from "mongoose";
 
 const leaveApplicationSchema = new mongoose.Schema(
   {
@@ -23,3 +23,5 @@ const leaveApplicationSchema = new mongoose.Schema(
 const LeaveApplication =
   mongoose.models.LeaveApplication ||
   mongoose.model("LeaveApplication", leaveApplicationSchema);
+
+export default LeaveApplication;
