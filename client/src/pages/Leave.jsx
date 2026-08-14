@@ -4,19 +4,29 @@ import Loading from "../components/Loading";
 import { Plus, Thermometer, Umbrella, Palmtree } from "lucide-react";
 import LeaveHistory from "../components/leave/LeaveHistory";
 import ApplyLeaveModal from "../components/leave/ApplyLeaveModal";
+import { useAuth } from "../context/AuthContext";
+import api from "../api/axios";
+import toast from "react-hot-toast";
 
 const Leave = () => {
+  const { user } = useAuth();
   const [leaves, setLeaves] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [isDeleted, setIsDeleted] = useState(false);
-  const isAdmin = false;
+  const isAdmin = user?.role === "ADMIN";
 
-  const fetchLeaves = useCallback(() => {
-    setLeaves(dummyLeaveData);
-    setTimeout(() => {
+  // Added "async" keyword before the arrow function parameters
+  const fetchLeaves = useCallback(async () => {
+    try {
+      const res = await api.get("/leave");
+      setLeaves(res.data.data || []);
+      if (res.data.employee?.isDeleted) setIsDeleted(true);
+    } catch (error) {
+      toast.error(error?.response?.data?.error || error.message);
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   }, []);
 
   useEffect(() => {
@@ -70,15 +80,9 @@ const Leave = () => {
               </div>
               <div>
                 <p className="text-sm text-slate-500">{s.label}</p>
-                <p
-                  className="text-2xl font-bold text-slate-900
-  tracking-tight"
-                >
+                <p className="text-2xl font-bold text-slate-900 tracking-tight">
                   {s.value}{" "}
-                  <span
-                    className="text-sm
-  font-normal text-slate-400"
-                  >
+                  <span className="text-sm font-normal text-slate-400">
                     taken
                   </span>
                 </p>

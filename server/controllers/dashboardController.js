@@ -21,11 +21,13 @@ export const getDashboard = async (req, res) => {
           }),
           LeaveApplication.countDocuments({ status: "PENDING" }),
         ]);
+
       return res.json({
         role: "ADMIN",
         totalEmployees,
         totalDepartments: DEPARTMENTS.length,
         todayAttendance,
+        pendingLeaves, // ✅ FIXED: Now sending the count to the frontend!
       });
     } else {
       const employee = await Employee.findOne({
@@ -55,6 +57,7 @@ export const getDashboard = async (req, res) => {
             })
             .lean(),
         ]);
+
       return res.json({
         role: "EMPLOYEE",
         employee: { ...employee, id: employee._id.toString() },

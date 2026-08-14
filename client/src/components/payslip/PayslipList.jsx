@@ -1,6 +1,7 @@
 import React from "react";
 import { format } from "date-fns";
 import { Download } from "lucide-react";
+
 const PayslipList = ({ payslips, isAdmin }) => {
   return (
     <div className="card overflow-hidden">

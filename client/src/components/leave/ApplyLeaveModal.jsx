@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { X, FileText, CalendarDays, Send, Loader2 } from "lucide-react";
+import api from "../../api/axios"; // adjust path if needed
+import toast from "react-hot-toast";
 
 const ApplyLeaveModal = ({ open, onClose, onSuccess }) => {
   const [loading, setLoading] = useState(false);
@@ -11,6 +13,21 @@ const ApplyLeaveModal = ({ open, onClose, onSuccess }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
+
+    const formData = new FormData(e.currentTarget);
+    const data = Object.fromEntries(formData.entries());
+
+    try {
+      await api.post("/leave", data);
+      toast.success("Leave applied successfully");
+      onSuccess?.();
+      onClose?.();
+    } catch (err) {
+      toast.error(err.response?.data?.error || err?.message);
+    } finally {
+      setLoading(false); // ✅ this is what unfreezes the button
+    }
   };
 
   if (!open) return null;
@@ -119,7 +136,6 @@ const ApplyLeaveModal = ({ open, onClose, onSuccess }) => {
             </button>
 
             <button
-              onClick={onClose}
               disabled={loading}
               type="submit"
               className="btn-primary flex-1 flex

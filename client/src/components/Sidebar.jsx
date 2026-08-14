@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useLocation, Link } from "react-router-dom";
-import { dummyProfileData } from "../assets/assets";
+import { useAuth } from "../context/AuthContext";
+import api from "../api/axios";
+
 import {
   Menu,
   X,
@@ -11,7 +13,7 @@ import {
   DollarSign,
   Settings,
   ChevronRight,
-  LogOut, // ← Add this
+  LogOut,
 } from "lucide-react";
 
 const Sidebar = () => {
@@ -19,17 +21,20 @@ const Sidebar = () => {
   const [userName, setUserName] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  const { user, loading, logout } = useAuth();
+
   useEffect(() => {
-    if (dummyProfileData) {
-      setUserName(dummyProfileData.firstName + " " + dummyProfileData.lastName);
-    }
+    api.get("/profile").then(({ data }) => {
+      if (data.firstName)
+        setUserName(`${data.firstName} ${data.lastName || ""}`.trim());
+    });
   }, []);
 
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
 
-  const role = "" || "EMPLOYEE"; // change to "ADMIN" if needed
+  const role = user?.role;
 
   const navItems = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutGrid },
@@ -42,6 +47,7 @@ const Sidebar = () => {
   ];
 
   const handleLogout = () => {
+    logout();
     window.location.href = "/login";
   };
 
@@ -96,34 +102,45 @@ const Sidebar = () => {
         </p>
       </div>
 
+      {/* Navigation List */}
       <div className="flex-1 px-3 space-y-1 overflow-y-auto">
-        {navItems.map((item) => {
-          const isActive = pathname === item.href;
-          const Icon = item.icon;
+        {loading ? (
+          <div
+            className="px-3 py-3 flex items-center gap-2
+text-slate-500"
+          >
+            <Loader2 className="animate-spin w-4 h-4" />
+            <span className="text-sm">Loading...</span>
+          </div>
+        ) : (
+          navItems.map((item) => {
+            const isActive = pathname === item.href;
+            const Icon = item.icon;
 
-          return (
-            <Link
-              key={item.href}
-              to={item.href}
-              className={`group flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-all relative ${
-                isActive
-                  ? "bg-white/10 text-white"
-                  : "text-slate-300 hover:bg-white/5 hover:text-white"
-              }`}
-            >
-              {isActive && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-indigo-500" />
-              )}
-              <Icon
-                className={`w-[18px] h-[18px] ${isActive ? "text-indigo-400" : "text-slate-400 group-hover:text-slate-300"}`}
-              />
-              <span>{item.name}</span>
-              {isActive && (
-                <ChevronRight className="w-3.5 h-3.5 ml-auto text-indigo-500/60" />
-              )}
-            </Link>
-          );
-        })}
+            return (
+              <Link
+                key={item.href}
+                to={item.href}
+                className={`group flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-all relative ${
+                  isActive
+                    ? "bg-white/10 text-white"
+                    : "text-slate-300 hover:bg-white/5 hover:text-white"
+                }`}
+              >
+                {isActive && (
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-indigo-500" />
+                )}
+                <Icon
+                  className={`w-[18px] h-[18px] ${isActive ? "text-indigo-400" : "text-slate-400 group-hover:text-slate-300"}`}
+                />
+                <span>{item.name}</span>
+                {isActive && (
+                  <ChevronRight className="w-3.5 h-3.5 ml-auto text-indigo-500/60" />
+                )}
+              </Link>
+            );
+          })
+        )}
       </div>
 
       {/* Logout */}

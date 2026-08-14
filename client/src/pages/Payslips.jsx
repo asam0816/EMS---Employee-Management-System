@@ -4,6 +4,9 @@ import Loading from "../components/Loading";
 import { Download } from "lucide-react";
 import { format } from "date-fns";
 import GeneratePayslipForm from "../components/payslip/GeneratePayslipForm";
+import { useAuth } from "../context/AuthContext";
+import api from "../api/axios";
+import toast from "react-hot-toast";
 
 // ======================
 // PayslipList Component
@@ -88,14 +91,18 @@ const Payslips = () => {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const isAdmin = true;
+  const { user } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
 
   const fetchPayslips = useCallback(async () => {
-    setPayslips(dummyPayslipData);
-
-    setTimeout(() => {
+    try {
+      const res = await api.get("/payslips");
+      setPayslips(res.data.data || []);
+    } catch (error) {
+      toast.error(error?.response?.data?.error || error?.message);
+    } finally {
       setLoading(false);
-    }, 800);
+    }
   }, []);
 
   useEffect(() => {
@@ -103,9 +110,11 @@ const Payslips = () => {
   }, [fetchPayslips]);
 
   useEffect(() => {
-    if (isAdmin) {
-      setEmployees(dummyEmployeeData);
-    }
+    if (isAdmin)
+      api
+        .get("/employees")
+        .then((res) => setEmployees(res.data.filter((e) => !e.isDeleted)))
+        .catch(() => {});
   }, [isAdmin]);
 
   if (loading) {
