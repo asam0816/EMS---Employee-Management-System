@@ -15,7 +15,7 @@ const Settings = () => {
 
     setTimeout(() => {
       const employee = dummyEmployeeData.find(
-        (item) => item.email === "johndoe@example.com",
+        (item) => item.email === "johndoe@gmail.com",
       );
       setProfile(employee || null);
       setLoading(false);
