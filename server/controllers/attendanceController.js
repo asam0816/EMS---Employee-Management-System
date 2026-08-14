@@ -1,19 +1,19 @@
 import { inngest } from "../inngest/index.js";
 import Employee from "../models/Employee.js";
 import Attendance from "../models/Attendance.js";
+import { logAudit } from "../utils/auditLogger.js";
 
-// Clock in/out for employee
-// POST /api/attendance
 export const clockInOut = async (req, res) => {
   try {
     const session = req.session;
     const employee = await Employee.findOne({ userId: session.userId });
     if (!employee) return res.status(404).json({ error: "Employee not found" });
 
-    if (employee.isDeleted)
+    if (employee.isDeleted) {
       return res.status(403).json({
         error: "Your account is deactivated. You cannot clock in/out.",
       });
+    }
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -24,8 +24,11 @@ export const clockInOut = async (req, res) => {
     });
 
     const now = new Date();
+
+    // CHECK IN
     if (!existing) {
       const isLate = now.getHours() >= 9 && now.getMinutes() > 0;
+
       const attendance = await Attendance.create({
         employeeId: employee._id,
         date: today,
@@ -35,21 +38,28 @@ export const clockInOut = async (req, res) => {
 
       await inngest.send({
         name: "employee/check-out",
-        data: {
-          employeeId: employee._id,
-          attendanceId: attendance._id,
-        },
+        data: { employeeId: employee._id, attendanceId: attendance._id },
+      });
+
+      await logAudit(req, {
+        action: "ATTENDANCE_CHECK_IN",
+        entityType: "Attendance",
+        entityId: attendance._id,
+        entityLabel: `${employee.firstName} ${employee.lastName} - ${today.toDateString()}`,
+        meta: { status: attendance.status },
       });
 
       return res.json({ success: true, type: "CHECK_IN", data: attendance });
-    } else if (!existing.checkOut) {
+    }
+
+    // CHECK OUT
+    if (!existing.checkOut) {
       const checkInTime = new Date(existing.checkIn).getTime();
       const diffMs = now.getTime() - checkInTime;
       const diffHours = diffMs / (1000 * 60 * 60);
 
       existing.checkOut = now;
 
-      // Compute working hours and day type
       const workingHours = parseFloat(diffHours.toFixed(2));
       let dayType = "Half Day";
       if (workingHours >= 8) dayType = "Full Day";
@@ -61,18 +71,25 @@ export const clockInOut = async (req, res) => {
       existing.dayType = dayType;
 
       await existing.save();
-      return res.json({ success: true, type: "CHECK_OUT", data: existing });
-    } else {
+
+      await logAudit(req, {
+        action: "ATTENDANCE_CHECK_OUT",
+        entityType: "Attendance",
+        entityId: existing._id,
+        entityLabel: `${employee.firstName} ${employee.lastName} - ${today.toDateString()}`,
+        meta: { workingHours, dayType },
+      });
+
       return res.json({ success: true, type: "CHECK_OUT", data: existing });
     }
+
+    return res.json({ success: true, type: "CHECK_OUT", data: existing });
   } catch (error) {
     console.error("Attendance Error:", error);
     return res.status(500).json({ error: "Operation failed" });
   }
 };
 
-// Get attendance for employee
-// GET /api/attendance
 export const getAttendance = async (req, res) => {
   try {
     const session = req.session;
@@ -88,7 +105,7 @@ export const getAttendance = async (req, res) => {
       data: history,
       employee: { isDeleted: employee.isDeleted },
     });
-  } catch (error) {
+  } catch {
     return res.status(500).json({ error: "Failed to fetch attendance" });
   }
 };

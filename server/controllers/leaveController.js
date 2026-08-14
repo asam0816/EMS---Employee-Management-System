@@ -1,17 +1,15 @@
-import { inngest } from "../inngest/index.js";
 import Employee from "../models/Employee.js";
 import LeaveApplication from "../models/LeaveApplication.js";
+import { logAudit } from "../utils/auditLogger.js";
 
 // Create leave
-// POST /api/leaves
+// POST /api/leave
 export const createLeave = async (req, res) => {
   try {
     const session = req.session;
     const employee = await Employee.findOne({ userId: session.userId });
 
-    if (!employee) {
-      return res.status(404).json({ error: "Employee not found" });
-    }
+    if (!employee) return res.status(404).json({ error: "Employee not found" });
 
     if (employee.isDeleted) {
       return res.status(403).json({
@@ -49,11 +47,15 @@ export const createLeave = async (req, res) => {
       status: "PENDING",
     });
 
-    await inngest.send({
-      name: "leave/pending",
-      data: {
-        leaveApplicationId: leave._id,
-      },
+    // ✅ AUDIT LOG
+    await logAudit(req, {
+      action: "LEAVE_APPLIED",
+      entityType: "LeaveApplication",
+      entityId: leave._id,
+      entityLabel: `${employee.firstName} ${employee.lastName} - ${type} (${new Date(
+        startDate,
+      ).toDateString()} to ${new Date(endDate).toDateString()})`,
+      meta: { type, startDate, endDate },
     });
 
     return res.json({ success: true, data: leave });
@@ -63,7 +65,7 @@ export const createLeave = async (req, res) => {
 };
 
 // Get leaves
-// GET /api/leaves
+// GET /api/leave
 export const getLeaves = async (req, res) => {
   try {
     const session = req.session;
@@ -72,6 +74,7 @@ export const getLeaves = async (req, res) => {
     if (isAdmin) {
       const status = req.query.status;
       const where = status ? { status } : {};
+
       const leaves = await LeaveApplication.find(where)
         .populate("employeeId")
         .sort({ createdAt: -1 });
@@ -89,17 +92,14 @@ export const getLeaves = async (req, res) => {
       return res.json({ data });
     }
 
-    const employee = await Employee.findOne({
-      userId: session.userId,
-    }).lean();
-
-    if (!employee) {
-      return res.status(404).json({ error: "Not found" });
-    }
+    const employee = await Employee.findOne({ userId: session.userId }).lean();
+    if (!employee) return res.status(404).json({ error: "Not found" });
 
     const leaves = await LeaveApplication.find({
       employeeId: employee._id,
-    }).sort({ createdAt: -1 });
+    }).sort({
+      createdAt: -1,
+    });
 
     return res.json({
       data: leaves,
@@ -110,8 +110,8 @@ export const getLeaves = async (req, res) => {
   }
 };
 
-// Update leave status
-// PATCH /api/leaves/:id
+// Update leave status (Admin)
+// PATCH /api/leave/:id
 export const updateLeaveStatus = async (req, res) => {
   try {
     const { status } = req.body;
@@ -124,11 +124,20 @@ export const updateLeaveStatus = async (req, res) => {
       req.params.id,
       { status },
       { new: true },
-    );
+    ).populate("employeeId");
 
-    if (!leave) {
-      return res.status(404).json({ error: "Leave not found" });
-    }
+    if (!leave) return res.status(404).json({ error: "Leave not found" });
+
+    // ✅ AUDIT LOG
+    const emp = leave.employeeId;
+    await logAudit(req, {
+      action: "LEAVE_STATUS_UPDATED",
+      entityType: "LeaveApplication",
+      entityId: leave._id,
+      entityLabel:
+        `${emp?.firstName || ""} ${emp?.lastName || ""} - ${leave.type} => ${status}`.trim(),
+      meta: { status },
+    });
 
     return res.json({ success: true, data: leave });
   } catch (error) {

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useLocation, Link } from "react-router-dom";
+import { useLocation, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
 
@@ -14,41 +14,66 @@ import {
   Settings,
   ChevronRight,
   LogOut,
+  ClipboardCheck,
+  Loader2,
 } from "lucide-react";
 
 const Sidebar = () => {
+  const navigate = useNavigate();
   const { pathname } = useLocation();
   const [userName, setUserName] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const { user, loading, logout } = useAuth();
+  const role = user?.role;
 
   useEffect(() => {
-    api.get("/profile").then(({ data }) => {
-      if (data.firstName)
-        setUserName(`${data.firstName} ${data.lastName || ""}`.trim());
-    });
+    let mounted = true;
+
+    api
+      .get("/profile")
+      .then(({ data }) => {
+        if (!mounted) return;
+        if (data?.firstName) {
+          setUserName(`${data.firstName} ${data.lastName || ""}`.trim());
+        }
+      })
+      .catch(() => {
+        // ignore (sidebar name is optional)
+      });
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
 
-  const role = user?.role;
-
   const navItems = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutGrid },
+
     role === "ADMIN"
       ? { name: "Employees", href: "/employees", icon: User }
       : { name: "Attendance", href: "/attendance", icon: Calendar },
+
     { name: "Leave", href: "/leave", icon: FileText },
     { name: "Payslips", href: "/payslips", icon: DollarSign },
-    { name: "Settings", href: "/settings", icon: Settings },
-  ];
 
-  const handleLogout = () => {
-    logout();
-    window.location.href = "/login";
+    // ✅ Admin-only Audit Logs
+    role === "ADMIN" && {
+      name: "Audit Logs",
+      href: "/audit-logs",
+      icon: ClipboardCheck,
+    },
+
+    { name: "Settings", href: "/settings", icon: Settings },
+  ].filter(Boolean);
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/login", { replace: true });
   };
 
   const sidebarContent = (
@@ -65,6 +90,7 @@ const Sidebar = () => {
               <p className="text-[11px] text-slate-500">Management System</p>
             </div>
           </div>
+
           <button
             onClick={() => setMobileOpen(false)}
             className="lg:hidden text-slate-400 hover:text-white p-1"
@@ -82,6 +108,7 @@ const Sidebar = () => {
                   {userName.charAt(0).toUpperCase()}
                 </span>
               </div>
+
               <div className="min-w-0">
                 <p className="text-[13px] font-medium text-slate-200 truncate">
                   {userName}
@@ -105,10 +132,7 @@ const Sidebar = () => {
       {/* Navigation List */}
       <div className="flex-1 px-3 space-y-1 overflow-y-auto">
         {loading ? (
-          <div
-            className="px-3 py-3 flex items-center gap-2
-text-slate-500"
-          >
+          <div className="px-3 py-3 flex items-center gap-2 text-slate-500">
             <Loader2 className="animate-spin w-4 h-4" />
             <span className="text-sm">Loading...</span>
           </div>
@@ -130,10 +154,16 @@ text-slate-500"
                 {isActive && (
                   <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-indigo-500" />
                 )}
+
                 <Icon
-                  className={`w-[18px] h-[18px] ${isActive ? "text-indigo-400" : "text-slate-400 group-hover:text-slate-300"}`}
+                  className={`w-[18px] h-[18px] ${
+                    isActive
+                      ? "text-indigo-400"
+                      : "text-slate-400 group-hover:text-slate-300"
+                  }`}
                 />
                 <span>{item.name}</span>
+
                 {isActive && (
                   <ChevronRight className="w-3.5 h-3.5 ml-auto text-indigo-500/60" />
                 )}
@@ -181,7 +211,9 @@ text-slate-500"
 
       {/* Mobile Sidebar */}
       <aside
-        className={`lg:hidden fixed inset-y-0 left-0 w-72 bg-slate-900 text-white z-50 flex flex-col transform transition-transform duration-300 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
+        className={`lg:hidden fixed inset-y-0 left-0 w-72 bg-slate-900 text-white z-50 flex flex-col transform transition-transform duration-300 ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
       >
         {sidebarContent}
       </aside>
