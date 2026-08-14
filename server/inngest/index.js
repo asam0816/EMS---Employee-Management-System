@@ -109,13 +109,13 @@ const leaveApplicationReminder = inngest.createFunction(
 const attendanceReminderCron = inngest.createFunction(
   {
     id: "attendance-reminder-cron",
-    triggers: { cron: "0 0 6 * * *" }, // ✅ move cron trigger here
+    triggers: { cron: "TZ=Asia/Colombo 30 11 * * *" },
   },
   async ({ step }) => {
     const today = await step.run("get-today-date", () => {
       const startUTC = new Date(
-        new Date().toLocaleDateString("en-CA", { timeZone: "Asia/colombo" }) +
-          "T00:00:00 + 05:30",
+        new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Colombo" }) +
+          "T00:00:00+05:30",
       );
       const endUTC = new Date(startUTC.getTime() + 24 * 60 * 60 * 1000);
       return { startUTC: startUTC.toISOString(), endUTC: endUTC.toISOString() };
@@ -160,11 +160,10 @@ const attendanceReminderCron = inngest.createFunction(
 
     if (absentEmployees.length > 0) {
       await step.run("send-reminder-emails", async () => {
-        const emailPromises = absentEmployees.map((emp) => {
-          // send email
+        absentEmployees.forEach((emp) => {
           sendEmail({
             to: emp.email,
-            subject: `Attendance Reminder - Please Mark Your Attendance`,
+            subject: "Attendance Reminder - Please Mark Your Attendance",
             body: `<div style="max-width: 600px; font-family:
 Arial, sans-serif;">
     <h2>Hi ${emp.firstName}, 👋</h2>
