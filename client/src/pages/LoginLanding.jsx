@@ -1,23 +1,31 @@
-import React from "react"
-import { Link } from "react-router-dom"
-import LoginLeftSide from "../components/LoginLeftSide"
-import { Shield, User, ArrowRight } from "lucide-react"
+import React from "react";
+import { Link, Navigate } from "react-router-dom";
+import LoginLeftSide from "../components/LoginLeftSide";
+import { Shield, User, ArrowRight } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+import Loading from "../components/Loading";
 
 const LoginLanding = () => {
+  const { user, loading } = useAuth();
+
+  if (loading) return <Loading />;
+  if (user) return <Navigate to="/" />;
   const portalOptions = [
     {
       to: "/login/admin",
       title: "Admin Portal",
-      description: "Manage employees, departments, payroll, and system configurations.",
-      icon: Shield
+      description:
+        "Manage employees, departments, payroll, and system configurations.",
+      icon: Shield,
     },
     {
       to: "/login/employee",
       title: "Employee Portal",
-      description: "View your profile, track attendance, request time off, and access payslips.",
-      icon: User
-    }
-  ]
+      description:
+        "View your profile, track attendance, request time off, and access payslips.",
+      icon: User,
+    },
+  ];
 
   return (
     <div className="flex h-screen">
@@ -55,15 +63,14 @@ const LoginLanding = () => {
             ))}
           </div>
 
-            {/* Footer */}
-<div className="mt-12 text-center md:text-left text-sm text-slate-400">
-  <p>© {new Date().getFullYear()} TechTitans. All rights reserved.</p>
-</div>
-
+          {/* Footer */}
+          <div className="mt-12 text-center md:text-left text-sm text-slate-400">
+            <p>© {new Date().getFullYear()} TechTitans. All rights reserved.</p>
+          </div>
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default LoginLanding
+export default LoginLanding;
