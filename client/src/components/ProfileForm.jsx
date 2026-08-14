@@ -1,11 +1,45 @@
-import React, { useState } from "react";
-import { User, Save, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { User, Save, Loader2, Upload } from "lucide-react";
 import api from "../api/axios";
+
+const fileToBase64 = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 
 const ProfileForm = ({ initialData, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+
+  const [bio, setBio] = useState("");
+  const [image, setImage] = useState(null);
+  const [preview, setPreview] = useState(null);
+
+  useEffect(() => {
+    setBio(initialData?.bio || "");
+    setImage(initialData?.image || null);
+    setPreview(initialData?.image || null);
+  }, [initialData]);
+
+  const disabled = initialData?.isDeleted;
+
+  const handlePickImage = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      setError("Image too large (max 2MB).");
+      return;
+    }
+
+    const base64 = await fileToBase64(file);
+    setImage(base64);
+    setPreview(base64);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -13,17 +47,10 @@ const ProfileForm = ({ initialData, onSuccess }) => {
     setError("");
     setMessage("");
 
-    const formData = new FormData(e.currentTarget);
-    const data = {
-      bio: formData.get("bio"),
-    };
-
     try {
-      // ✅ FIXED: Changed from .post to .put to match backend routing
-      await api.post("/profile", data);
+      // ✅ Only updating allowed fields: bio + image
+      await api.put("/profile", { bio, image });
       setMessage("Profile updated successfully");
-
-      // Notify parent component to refresh data
       onSuccess?.();
     } catch (err) {
       setError(err.response?.data?.error || err.message);
@@ -31,6 +58,9 @@ const ProfileForm = ({ initialData, onSuccess }) => {
       setLoading(false);
     }
   };
+
+  const readOnlyClass =
+    "w-full p-2.5 border border-slate-300 rounded-lg bg-slate-50 text-slate-400 cursor-not-allowed";
 
   return (
     <form
@@ -42,24 +72,62 @@ const ProfileForm = ({ initialData, onSuccess }) => {
         Public Profile
       </h2>
 
-      {/* ✅ FIXED: Render the Success Green Alert Box */}
+      {/* Alerts */}
       {message && (
-        <div className="p-4 mb-6 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-sm flex items-center gap-3 animate-fade-in">
-          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-          <span>{message}</span>
+        <div className="p-4 mb-5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-sm">
+          {message}
         </div>
       )}
-
-      {/* ✅ FIXED: Render the Failure Red Alert Box */}
       {error && (
-        <div className="p-4 mb-6 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-sm flex items-center gap-3 animate-fade-in">
-          <div className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-          <span>{error}</span>
+        <div className="p-4 mb-5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-sm">
+          {error}
         </div>
       )}
 
       <div className="space-y-5">
-        {/* Name & Email Fields */}
+        {/* Profile Picture */}
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
+            {preview ? (
+              <img
+                src={preview}
+                alt="Profile"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <span className="text-slate-500 font-semibold">
+                {(initialData?.firstName?.[0] || "U").toUpperCase()}
+              </span>
+            )}
+          </div>
+
+          <div>
+            <p className="text-sm font-medium text-slate-900">
+              Profile picture
+            </p>
+            <p className="text-xs text-slate-500 mt-0.5">JPG/PNG, max 2MB</p>
+
+            <label
+              className={`inline-flex items-center gap-2 mt-2 px-3 py-2 rounded-lg border border-slate-200 text-sm ${
+                disabled
+                  ? "bg-slate-50 text-slate-400 cursor-not-allowed"
+                  : "bg-white hover:bg-slate-50 cursor-pointer"
+              }`}
+            >
+              <Upload className="w-4 h-4" />
+              Upload
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handlePickImage}
+                disabled={disabled}
+                className="hidden"
+              />
+            </label>
+          </div>
+        </div>
+
+        {/* Name + Email */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -67,58 +135,73 @@ const ProfileForm = ({ initialData, onSuccess }) => {
             </label>
             <input
               disabled
-              value={`${initialData?.firstName ?? ""} ${initialData?.lastName ?? ""}`.trim()}
-              className="w-full p-2.5 border border-slate-200 rounded-lg bg-slate-50 text-slate-400 cursor-not-allowed outline-none"
+              value={`${initialData?.firstName ?? ""} ${
+                initialData?.lastName ?? ""
+              }`.trim()}
+              className={readOnlyClass}
             />
           </div>
+
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
               Email
             </label>
             <input
               disabled
-              value={initialData?.email ?? ""}
-              className="w-full p-2.5 border border-slate-200 rounded-lg bg-slate-50 text-slate-400 cursor-not-allowed outline-none"
+              value={initialData?.email || ""}
+              className={readOnlyClass}
             />
           </div>
         </div>
 
-        {/* Position Field */}
-        <div className="sm:col-span-2">
+        {/* ✅ NIC (Read only) */}
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-2">
+            National ID Number
+          </label>
+          <input
+            disabled
+            value={initialData?.nationalIdNumber || "—"}
+            className={readOnlyClass}
+          />
+        </div>
+
+        {/* Position */}
+        <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">
             Position
           </label>
           <input
             disabled
-            value={initialData?.position ?? ""}
-            className="w-full p-2.5 border border-slate-200 rounded-lg bg-slate-50 text-slate-400 cursor-not-allowed outline-none"
+            value={initialData?.position || ""}
+            className={readOnlyClass}
           />
         </div>
 
-        {/* Bio Field */}
+        {/* Bio */}
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">
             Bio
           </label>
           <textarea
-            disabled={initialData?.isDeleted}
-            name="bio"
-            defaultValue={initialData?.bio || ""}
-            placeholder="Write a brief bio..."
-            className={`w-full p-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all resize-none ${
-              initialData?.isDeleted
-                ? "bg-slate-50 text-slate-400 cursor-not-allowed"
-                : "bg-white text-slate-800"
-            }`}
+            disabled={disabled}
+            value={bio}
+            onChange={(e) => setBio(e.target.value)}
             rows={4}
+            placeholder="Write a brief bio..."
+            className={`w-full p-2.5 border border-slate-300 rounded-lg outline-none resize-none ${
+              disabled
+                ? "bg-slate-50 text-slate-400 cursor-not-allowed"
+                : "bg-white text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            }`}
           />
           <p className="text-xs text-slate-400 mt-1.5">
             This will be displayed on your profile.
           </p>
         </div>
 
-        {/* Footer Actions */}
-        {initialData?.isDeleted ? (
+        {/* Save Button */}
+        {disabled ? (
           <div className="pt-2">
             <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-center">
               <p className="text-rose-600 font-medium tracking-tight">
@@ -134,7 +217,7 @@ const ProfileForm = ({ initialData, onSuccess }) => {
             <button
               type="submit"
               disabled={loading}
-              className="px-5 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm flex items-center justify-center gap-2 disabled:opacity-60 transition-colors w-full sm:w-auto"
+              className="btn-primary flex items-center gap-2 justify-center w-full sm:w-auto"
             >
               {loading ? (
                 <>

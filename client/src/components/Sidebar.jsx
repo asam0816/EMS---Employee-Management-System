@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useLocation, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
+import { IdCard } from "lucide-react";
 
 import {
   Menu,
@@ -21,7 +22,9 @@ import {
 const Sidebar = () => {
   const navigate = useNavigate();
   const { pathname } = useLocation();
+
   const [userName, setUserName] = useState("");
+  const [userImage, setUserImage] = useState(null); // ✅ NEW
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const { user, loading, logout } = useAuth();
@@ -34,12 +37,16 @@ const Sidebar = () => {
       .get("/profile")
       .then(({ data }) => {
         if (!mounted) return;
+
         if (data?.firstName) {
           setUserName(`${data.firstName} ${data.lastName || ""}`.trim());
         }
+
+        // ✅ NEW: profile image
+        setUserImage(data?.image || null);
       })
       .catch(() => {
-        // ignore (sidebar name is optional)
+        // ignore (sidebar name/image is optional)
       });
 
     return () => {
@@ -53,13 +60,14 @@ const Sidebar = () => {
 
   const navItems = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutGrid },
-
     role === "ADMIN"
       ? { name: "Employees", href: "/employees", icon: User }
       : { name: "Attendance", href: "/attendance", icon: Calendar },
-
     { name: "Leave", href: "/leave", icon: FileText },
     { name: "Payslips", href: "/payslips", icon: DollarSign },
+
+    // ✅ Admin-only ID Cards
+    role === "ADMIN" && { name: "ID Cards", href: "/id-cards", icon: IdCard },
 
     // ✅ Admin-only Audit Logs
     role === "ADMIN" && {
@@ -100,18 +108,27 @@ const Sidebar = () => {
         </div>
 
         {/* User Profile Card */}
-        {userName && (
+        {(userName || loading) && (
           <div className="mx-3 mt-4 mb-1 p-3 rounded-lg bg-white/5 border border-white/10">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center ring-1 ring-white/10 shrink-0">
-                <span className="text-slate-400 text-xs font-semibold">
-                  {userName.charAt(0).toUpperCase()}
-                </span>
+              {/* ✅ Avatar */}
+              <div className="w-9 h-9 rounded-lg bg-slate-800 ring-1 ring-white/10 shrink-0 overflow-hidden flex items-center justify-center">
+                {userImage ? (
+                  <img
+                    src={userImage}
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="text-slate-400 text-xs font-semibold">
+                    {(userName?.charAt(0) || "U").toUpperCase()}
+                  </span>
+                )}
               </div>
 
               <div className="min-w-0">
                 <p className="text-[13px] font-medium text-slate-200 truncate">
-                  {userName}
+                  {loading ? "Loading..." : userName || "User"}
                 </p>
                 <p className="text-[11px] text-slate-500 truncate">
                   {role === "ADMIN" ? "Administrator" : "Employee"}

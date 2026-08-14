@@ -12,26 +12,23 @@ import Payslips from "./pages/Payslips";
 import Settings from "./pages/Settings";
 import PrintPayslip from "./pages/PrintPayslip";
 import AuditLogs from "./pages/AuditLogs";
+import IDCards from "./pages/IDCards";
 
 import LoginForm from "./components/LoginForm";
 import Loading from "./components/Loading";
 
 const RequireAuth = ({ children }) => {
   const { user, loading } = useAuth();
-
   if (loading) return <Loading />;
   if (!user) return <Navigate to="/login" replace />;
-
   return children;
 };
 
 const RequireAdmin = ({ children }) => {
   const { user, loading } = useAuth();
-
   if (loading) return <Loading />;
   if (!user) return <Navigate to="/login" replace />;
   if (user.role !== "ADMIN") return <Navigate to="/dashboard" replace />;
-
   return children;
 };
 
@@ -64,7 +61,7 @@ const App = () => {
           }
         />
 
-        {/* Protected App */}
+        {/* Protected App with Layout */}
         <Route
           element={
             <RequireAuth>
@@ -79,7 +76,7 @@ const App = () => {
           <Route path="/payslips" element={<Payslips />} />
           <Route path="/settings" element={<Settings />} />
 
-          {/* ✅ Admin-only */}
+          {/* ✅ Admin-only pages INSIDE Layout */}
           <Route
             path="/audit-logs"
             element={
@@ -88,8 +85,17 @@ const App = () => {
               </RequireAdmin>
             }
           />
+          <Route
+            path="/id-cards"
+            element={
+              <RequireAdmin>
+                <IDCards />
+              </RequireAdmin>
+            }
+          />
         </Route>
 
+        {/* Print route can stay outside Layout */}
         <Route path="/print/payslips/:id" element={<PrintPayslip />} />
 
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

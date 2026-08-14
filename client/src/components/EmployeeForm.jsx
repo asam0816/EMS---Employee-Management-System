@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { DEPARTMENTS } from "../assets/assets";
-import { Loader2 } from "lucide-react"; // Import correct icon
-import api from "../api/axios"; // Import Axios instance
+import { Loader2 } from "lucide-react";
+import api from "../api/axios";
 import toast from "react-hot-toast";
 
 const EmployeeForm = ({ initialData, onSuccess, onCancel }) => {
@@ -10,13 +10,16 @@ const EmployeeForm = ({ initialData, onSuccess, onCancel }) => {
   const [loading, setLoading] = useState(false);
   const isEditMode = !!initialData;
 
-  // Single flat handleSubmit function
+  const inputClass =
+    "w-full mt-2 p-2.5 border border-slate-200 rounded-lg bg-white text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all";
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
 
+    // optional password in edit mode
     if (isEditMode) {
       const pwd = formData.get("password");
       if (!pwd) formData.delete("password");
@@ -25,6 +28,7 @@ const EmployeeForm = ({ initialData, onSuccess, onCancel }) => {
     try {
       const url = isEditMode ? `/employees/${initialData.id}` : "/employees";
       const method = isEditMode ? "put" : "post";
+
       await api[method](url, formData);
 
       toast.success(isEditMode ? "Employee updated!" : "Employee created!");
@@ -36,10 +40,6 @@ const EmployeeForm = ({ initialData, onSuccess, onCancel }) => {
     }
   };
 
-  // Reusable styling classes for inputs
-  const inputClass =
-    "w-full mt-2 p-2.5 border border-slate-200 rounded-lg bg-white text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all";
-
   return (
     <form
       onSubmit={handleSubmit}
@@ -50,6 +50,7 @@ const EmployeeForm = ({ initialData, onSuccess, onCancel }) => {
         <h3 className="font-semibold text-slate-800 mb-6 pb-4 border-b border-slate-100 text-lg">
           Personal Information
         </h3>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 text-sm text-slate-700">
           <div>
             <label className="block font-medium">First Name</label>
@@ -62,6 +63,7 @@ const EmployeeForm = ({ initialData, onSuccess, onCancel }) => {
               placeholder="Enter first name"
             />
           </div>
+
           <div>
             <label className="block font-medium">Last Name</label>
             <input
@@ -73,6 +75,7 @@ const EmployeeForm = ({ initialData, onSuccess, onCancel }) => {
               placeholder="Enter last name"
             />
           </div>
+
           <div>
             <label className="block font-medium">Phone Number</label>
             <input
@@ -84,6 +87,20 @@ const EmployeeForm = ({ initialData, onSuccess, onCancel }) => {
               placeholder="Enter phone number"
             />
           </div>
+
+          {/* ✅ NIC */}
+          <div>
+            <label className="block font-medium">National ID Number</label>
+            <input
+              name="nationalIdNumber"
+              type="text"
+              required
+              defaultValue={initialData?.nationalIdNumber || ""}
+              className={inputClass}
+              placeholder="Enter NIC number"
+            />
+          </div>
+
           <div>
             <label className="block font-medium">Join Date</label>
             <input
@@ -98,6 +115,7 @@ const EmployeeForm = ({ initialData, onSuccess, onCancel }) => {
               className={inputClass}
             />
           </div>
+
           <div className="sm:col-span-2">
             <label className="block font-medium">Bio (Optional)</label>
             <textarea
@@ -116,6 +134,7 @@ const EmployeeForm = ({ initialData, onSuccess, onCancel }) => {
         <h3 className="text-base font-semibold text-slate-800 mb-6 pb-4 border-b border-slate-100 text-lg">
           Employment Details
         </h3>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 text-sm text-slate-700">
           <div>
             <label className="block font-medium">Department</label>
@@ -133,6 +152,7 @@ const EmployeeForm = ({ initialData, onSuccess, onCancel }) => {
               ))}
             </select>
           </div>
+
           <div>
             <label className="block font-medium">Position</label>
             <input
@@ -144,6 +164,7 @@ const EmployeeForm = ({ initialData, onSuccess, onCancel }) => {
               placeholder="e.g. Software Developer"
             />
           </div>
+
           <div>
             <label className="block font-medium">Basic Salary</label>
             <input
@@ -152,40 +173,43 @@ const EmployeeForm = ({ initialData, onSuccess, onCancel }) => {
               required
               min="0"
               step="0.01"
-              defaultValue={initialData?.basicSalary || 0}
+              defaultValue={initialData?.basicSalary ?? 0}
               className={inputClass}
             />
           </div>
+
           <div>
             <label className="block font-medium">Allowances</label>
             <input
               type="number"
               name="allowances"
+              required
               min="0"
               step="0.01"
-              required
-              defaultValue={initialData?.allowances || 0}
+              defaultValue={initialData?.allowances ?? 0}
               className={inputClass}
             />
           </div>
+
           <div>
             <label className="block font-medium">Deductions</label>
             <input
               type="number"
               name="deductions"
+              required
               min="0"
               step="0.01"
-              required
-              defaultValue={initialData?.deductions || 0}
+              defaultValue={initialData?.deductions ?? 0}
               className={inputClass}
             />
           </div>
+
           {isEditMode && (
             <div>
               <label className="block font-medium">Status</label>
               <select
                 name="employmentStatus"
-                defaultValue={initialData?.employmentStatus}
+                defaultValue={initialData?.employmentStatus || "ACTIVE"}
                 className={inputClass}
               >
                 <option value="ACTIVE">Active</option>
@@ -201,6 +225,7 @@ const EmployeeForm = ({ initialData, onSuccess, onCancel }) => {
         <h3 className="text-base font-semibold text-slate-800 mb-6 pb-4 border-b border-slate-100 text-lg">
           Account Setup
         </h3>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 text-sm text-slate-700">
           <div className="sm:col-span-2">
             <label className="block font-medium">Work Email</label>
@@ -213,6 +238,7 @@ const EmployeeForm = ({ initialData, onSuccess, onCancel }) => {
               placeholder="example@company.com"
             />
           </div>
+
           {!isEditMode && (
             <div>
               <label className="block font-medium">Temporary Password</label>
@@ -225,6 +251,7 @@ const EmployeeForm = ({ initialData, onSuccess, onCancel }) => {
               />
             </div>
           )}
+
           {isEditMode && (
             <div>
               <label className="block font-medium">
@@ -238,6 +265,7 @@ const EmployeeForm = ({ initialData, onSuccess, onCancel }) => {
               />
             </div>
           )}
+
           <div>
             <label className="block font-medium">System Role</label>
             <select
@@ -252,7 +280,7 @@ const EmployeeForm = ({ initialData, onSuccess, onCancel }) => {
         </div>
       </div>
 
-      {/* Action Buttons */}
+      {/* Buttons */}
       <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-2">
         <button
           type="button"
@@ -261,6 +289,7 @@ const EmployeeForm = ({ initialData, onSuccess, onCancel }) => {
         >
           Cancel
         </button>
+
         <button
           type="submit"
           disabled={loading}

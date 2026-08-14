@@ -13,6 +13,12 @@ const employeeSchema = new mongoose.Schema(
     lastName: { type: String, required: true },
     email: { type: String, required: true },
     phone: { type: String, required: true },
+    nationalIdNumber: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true,
+    },
     position: { type: String, required: true },
     basicSalary: { type: Number, default: 0 },
     allowances: { type: Number, default: 0 },
