@@ -1,9 +1,8 @@
 import Employee from "../models/Employee.js";
 import bcrypt from "bcryptjs";
 import User from "../models/User.js";
+import { logAudit } from "../utils/auditLogger.js";
 
-// Get employees
-// GET /api/employees
 export const getEmployees = async (req, res) => {
   try {
     const { department } = req.query;
@@ -24,13 +23,11 @@ export const getEmployees = async (req, res) => {
     }));
 
     return res.json(result);
-  } catch (error) {
+  } catch {
     return res.status(500).json({ error: "Failed to fetch employees" });
   }
 };
 
-// Create employee
-// POST /api/employees
 export const createEmployee = async (req, res) => {
   try {
     const {
@@ -75,18 +72,23 @@ export const createEmployee = async (req, res) => {
       bio: bio || "",
     });
 
+    // ✅ AUDIT BEFORE RETURN
+    await logAudit(req, {
+      action: "EMPLOYEE_CREATED",
+      entityType: "Employee",
+      entityId: employee._id,
+      entityLabel: `${employee.firstName} ${employee.lastName} (${employee.email})`,
+      meta: { department: employee.department, role: user.role },
+    });
+
     return res.status(201).json({ success: true, employee });
   } catch (error) {
-    if (error.code === 11000) {
+    if (error.code === 11000)
       return res.status(400).json({ error: "Email already exists" });
-    }
-    console.error("Create employee error:", error);
     return res.status(500).json({ error: "Failed to create employee" });
   }
 };
 
-// Update employee
-// PUT /api/employees/:id
 export const updateEmployee = async (req, res) => {
   try {
     const { id } = req.params;
@@ -122,25 +124,30 @@ export const updateEmployee = async (req, res) => {
       deductions: Number(deductions) || 0,
       employmentStatus: employmentStatus || "ACTIVE",
       bio: bio || "",
+      ...(joinDate ? { joinDate: new Date(joinDate) } : {}),
     });
 
-    // Update user record
     const userUpdate = { email };
     if (role) userUpdate.role = role;
     if (password) userUpdate.password = await bcrypt.hash(password, 10);
     await User.findByIdAndUpdate(employee.userId, userUpdate);
 
+    // ✅ AUDIT BEFORE RETURN
+    await logAudit(req, {
+      action: "EMPLOYEE_UPDATED",
+      entityType: "Employee",
+      entityId: employee._id,
+      entityLabel: `${firstName || employee.firstName} ${lastName || employee.lastName} (${email || employee.email})`,
+    });
+
     return res.json({ success: true });
   } catch (error) {
-    if (error.code === 11000) {
+    if (error.code === 11000)
       return res.status(400).json({ error: "Email already exists" });
-    }
     return res.status(500).json({ error: "Failed to update employee" });
   }
 };
 
-// Delete employee
-// DELETE /api/employees/:id
 export const deleteEmployee = async (req, res) => {
   try {
     const { id } = req.params;
@@ -150,8 +157,17 @@ export const deleteEmployee = async (req, res) => {
     employee.isDeleted = true;
     employee.employmentStatus = "INACTIVE";
     await employee.save();
+
+    // ✅ AUDIT
+    await logAudit(req, {
+      action: "EMPLOYEE_DEACTIVATED",
+      entityType: "Employee",
+      entityId: employee._id,
+      entityLabel: `${employee.firstName} ${employee.lastName} (${employee.email})`,
+    });
+
     return res.json({ success: true });
-  } catch (error) {
+  } catch {
     return res.status(500).json({ error: "Failed to delete employee" });
   }
 };
