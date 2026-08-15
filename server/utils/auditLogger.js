@@ -1,32 +1,42 @@
 import AuditLog from "../models/AuditLog.js";
 
-export const logAudit = async (req, payload) => {
+export const logAudit = async (req, payload = {}) => {
   try {
-    const session = req.session || {};
+    const {
+      action,
+      entityType,
+      entityId = null,
+      entityLabel = "",
+      meta = {},
+    } = payload;
+
+    if (!action || !entityType) {
+      return null;
+    }
 
     const ipAddress =
-      (req.headers["x-forwarded-for"] || "").split(",")[0].trim() ||
-      req.socket?.remoteAddress ||
+      req?.headers?.["x-forwarded-for"]?.split(",")[0]?.trim() ||
+      req?.ip ||
+      req?.socket?.remoteAddress ||
       "";
 
-    const userAgent = req.headers["user-agent"] || "";
+    const userAgent = req?.headers?.["user-agent"] || "";
 
-    await AuditLog.create({
-      actorUserId: session.userId || null,
-      actorEmail: session.email || "Unknown",
-      actorRole: session.role || "UNKNOWN",
-
-      action: payload.action,
-      entityType: payload.entityType || "",
-      entityId: payload.entityId ? String(payload.entityId) : "",
-      entityLabel: payload.entityLabel || "",
-      meta: payload.meta || {},
-
+    const auditData = {
+      action: String(action).trim(),
+      entityType: String(entityType).trim(),
+      entityId,
+      entityLabel: String(entityLabel || "").trim(),
+      meta: meta || {},
+      performedBy: req?.session?.userId || null,
       ipAddress,
       userAgent,
-    });
-  } catch (err) {
-    // never break your API because audit logging failed
-    console.error("Audit log error:", err.message);
+    };
+
+    const record = await AuditLog.create(auditData);
+    return record;
+  } catch (error) {
+    console.error("Audit log error:", error);
+    return null;
   }
 };

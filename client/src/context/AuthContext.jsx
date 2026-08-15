@@ -47,10 +47,23 @@ export function AuthProvider({ children }) {
     return data.user;
   };
 
+  // ✅ UPDATED: call backend logout FIRST (auto clock-out happens there),
+  // then clear token locally
   const logout = async () => {
-    localStorage.removeItem("token");
-    setToken(null);
-    setUser(null);
+    try {
+      // token is still in localStorage here, so axios attaches it
+      await api.post("/auth/logout");
+    } catch (error) {
+      // ignore backend errors, still logout locally
+      console.error(
+        "Logout API error:",
+        error?.response?.data || error?.message,
+      );
+    } finally {
+      localStorage.removeItem("token");
+      setToken(null);
+      setUser(null);
+    }
   };
 
   const value = { user, token, loading, login, logout, refreshSession };

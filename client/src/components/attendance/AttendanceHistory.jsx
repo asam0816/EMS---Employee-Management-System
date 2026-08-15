@@ -1,6 +1,6 @@
 import React from "react";
 import { getDayTypeDisplay, getWorkingHoursDisplay } from "../../assets/assets";
-import { format, formatDate } from "date-fns";
+import { format, parseISO } from "date-fns";
 
 const AttendanceHistory = ({ history }) => {
   return (
@@ -13,6 +13,7 @@ const AttendanceHistory = ({ history }) => {
           <thead>
             <tr>
               <th className="px-6 py-4">Date</th>
+              <th className="px-6 py-4">Shift</th>
               <th className="px-6 py-4">Check In</th>
               <th className="px-6 py-4">Check Out</th>
               <th className="px-6 py-4">Working Hours</th>
@@ -24,7 +25,7 @@ const AttendanceHistory = ({ history }) => {
           <tbody>
             {history.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-center py-12 text-slate-400">
+                <td colSpan={7} className="text-center py-12 text-slate-400">
                   No records found
                 </td>
               </tr>
@@ -34,8 +35,18 @@ const AttendanceHistory = ({ history }) => {
                 return (
                   <tr key={record._id || record.id}>
                     <td className="px-6 py-4 font-medium text-slate-900">
-                      {formatDate(new Date(record.date), "dd MMM yyyy")}
+                      {record.attendanceDateKey
+                        ? format(
+                            parseISO(record.attendanceDateKey),
+                            "dd MMM yyyy",
+                          )
+                        : "-"}
                     </td>
+
+                    <td className="px-6 py-4 text-slate-600">
+                      {record.shiftKey || "-"}
+                    </td>
+
                     <td className="px-6 py-4 text-slate-600">
                       {record.checkIn
                         ? format(new Date(record.checkIn), "hh:mm a")
@@ -47,12 +58,10 @@ const AttendanceHistory = ({ history }) => {
                         : "-"}
                     </td>
 
-                    <td
-                      className="px-6 py-4 text-slate-600
-font-medium"
-                    >
+                    <td className="px-6 py-4 text-slate-600 font-medium">
                       {getWorkingHoursDisplay(record)}
                     </td>
+
                     <td className="px-6 py-4">
                       {dayType.label !== "-" ? (
                         <span className={`badge ${dayType.className}`}>

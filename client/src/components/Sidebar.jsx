@@ -3,6 +3,7 @@ import { useLocation, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
 import { IdCard } from "lucide-react";
+import { Video } from "lucide-react";
 
 import {
   Menu,
@@ -24,7 +25,7 @@ const Sidebar = () => {
   const { pathname } = useLocation();
 
   const [userName, setUserName] = useState("");
-  const [userImage, setUserImage] = useState(null); // ✅ NEW
+  const [userImage, setUserImage] = useState(null);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const { user, loading, logout } = useAuth();
@@ -42,7 +43,6 @@ const Sidebar = () => {
           setUserName(`${data.firstName} ${data.lastName || ""}`.trim());
         }
 
-        // ✅ NEW: profile image
         setUserImage(data?.image || null);
       })
       .catch(() => {
@@ -66,22 +66,31 @@ const Sidebar = () => {
     { name: "Leave", href: "/leave", icon: FileText },
     { name: "Payslips", href: "/payslips", icon: DollarSign },
 
-    // ✅ Admin-only ID Cards
     role === "ADMIN" && { name: "ID Cards", href: "/id-cards", icon: IdCard },
 
-    // ✅ Admin-only Audit Logs
     role === "ADMIN" && {
       name: "Audit Logs",
       href: "/audit-logs",
       icon: ClipboardCheck,
     },
 
+    {
+      name: "Meetings",
+      href: "/meetings",
+      icon: Video,
+    },
+
     { name: "Settings", href: "/settings", icon: Settings },
   ].filter(Boolean);
 
+  // ✅ UPDATED: logout() (from context) now calls backend /auth/logout first,
+  // which auto clock-outs the employee, then clears token
   const handleLogout = async () => {
-    await logout();
-    navigate("/login", { replace: true });
+    try {
+      await logout();
+    } finally {
+      navigate("/login", { replace: true });
+    }
   };
 
   const sidebarContent = (
@@ -113,7 +122,6 @@ const Sidebar = () => {
         {(userName || loading) && (
           <div className="mx-3 mt-4 mb-1 p-3 rounded-lg bg-white/5 border border-white/10">
             <div className="flex items-center gap-3">
-              {/* ✅ Avatar */}
               <div className="w-9 h-9 rounded-lg bg-slate-800 ring-1 ring-white/10 shrink-0 overflow-hidden flex items-center justify-center">
                 {userImage ? (
                   <img

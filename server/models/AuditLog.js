@@ -2,22 +2,50 @@ import mongoose from "mongoose";
 
 const auditLogSchema = new mongoose.Schema(
   {
-    actorUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-    actorEmail: { type: String, default: "Unknown" },
-    actorRole: { type: String, default: "UNKNOWN" }, // ADMIN / EMPLOYEE
-
-    action: { type: String, required: true }, // e.g. EMPLOYEE_CREATED
-    entityType: { type: String, default: "" }, // Employee / LeaveApplication / Profile
-    entityId: { type: String, default: "" },
-    entityLabel: { type: String, default: "" },
-
-    meta: { type: Object, default: {} }, // store extra info
-
-    ipAddress: { type: String, default: "" },
-    userAgent: { type: String, default: "" },
+    action: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    entityType: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    entityId: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null,
+    },
+    entityLabel: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    performedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    ipAddress: {
+      type: String,
+      default: "",
+    },
+    userAgent: {
+      type: String,
+      default: "",
+    },
+    meta: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
   },
-  { timestamps: true },
+  {
+    timestamps: true,
+  },
 );
+
+auditLogSchema.index({ createdAt: -1 });
+auditLogSchema.index({ action: 1, entityType: 1 });
 
 const AuditLog =
   mongoose.models.AuditLog || mongoose.model("AuditLog", auditLogSchema);
