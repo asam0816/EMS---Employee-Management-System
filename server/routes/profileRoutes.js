@@ -5,6 +5,6 @@ import { getProfile, updateProfile } from "../controllers/profileController.js";
 const profileRouter = Router();
 
 profileRouter.get("/", protect, getProfile);
-profileRouter.put("/", protect, updateProfile); // ✅ changed to PUT
+profileRouter.put("/", protect, updateProfile); // ✅ PUT
 
 export default profileRouter;

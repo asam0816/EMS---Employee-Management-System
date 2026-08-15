@@ -23,7 +23,7 @@ export const getEmployees = async (req, res) => {
     }));
 
     return res.json(result);
-  } catch {
+  } catch (error) {
     return res.status(500).json({ error: "Failed to fetch employees" });
   }
 };
@@ -35,6 +35,7 @@ export const createEmployee = async (req, res) => {
       lastName,
       email,
       phone,
+      nationalIdNumber,
       position,
       department,
       basicSalary,
@@ -46,7 +47,8 @@ export const createEmployee = async (req, res) => {
       bio,
     } = req.body;
 
-    if (!email || !password || !firstName || !lastName) {
+    // ✅ NIC required
+    if (!email || !password || !firstName || !lastName || !nationalIdNumber) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
@@ -63,6 +65,7 @@ export const createEmployee = async (req, res) => {
       lastName,
       email,
       phone,
+      nationalIdNumber,
       position,
       department: department || "Engineering",
       basicSalary: Number(basicSalary) || 0,
@@ -72,19 +75,30 @@ export const createEmployee = async (req, res) => {
       bio: bio || "",
     });
 
-    // ✅ AUDIT BEFORE RETURN
     await logAudit(req, {
       action: "EMPLOYEE_CREATED",
       entityType: "Employee",
       entityId: employee._id,
       entityLabel: `${employee.firstName} ${employee.lastName} (${employee.email})`,
-      meta: { department: employee.department, role: user.role },
+      meta: {
+        department: employee.department,
+        role: user.role,
+        nationalIdNumber,
+      },
     });
 
     return res.status(201).json({ success: true, employee });
   } catch (error) {
-    if (error.code === 11000)
-      return res.status(400).json({ error: "Email already exists" });
+    if (error.code === 11000) {
+      const key = Object.keys(error.keyPattern || {})[0];
+      if (key === "email")
+        return res.status(400).json({ error: "Email already exists" });
+      if (key === "nationalIdNumber")
+        return res.status(400).json({ error: "NIC number already exists" });
+      return res.status(400).json({ error: "Duplicate value" });
+    }
+
+    console.error("Create employee error:", error);
     return res.status(500).json({ error: "Failed to create employee" });
   }
 };
@@ -92,11 +106,13 @@ export const createEmployee = async (req, res) => {
 export const updateEmployee = async (req, res) => {
   try {
     const { id } = req.params;
+
     const {
       firstName,
       lastName,
       email,
       phone,
+      nationalIdNumber,
       position,
       department,
       basicSalary,
@@ -117,6 +133,7 @@ export const updateEmployee = async (req, res) => {
       lastName,
       email,
       phone,
+      nationalIdNumber,
       position,
       department: department || "Engineering",
       basicSalary: Number(basicSalary) || 0,
@@ -132,18 +149,26 @@ export const updateEmployee = async (req, res) => {
     if (password) userUpdate.password = await bcrypt.hash(password, 10);
     await User.findByIdAndUpdate(employee.userId, userUpdate);
 
-    // ✅ AUDIT BEFORE RETURN
     await logAudit(req, {
       action: "EMPLOYEE_UPDATED",
       entityType: "Employee",
       entityId: employee._id,
       entityLabel: `${firstName || employee.firstName} ${lastName || employee.lastName} (${email || employee.email})`,
+      meta: { nationalIdNumber },
     });
 
     return res.json({ success: true });
   } catch (error) {
-    if (error.code === 11000)
-      return res.status(400).json({ error: "Email already exists" });
+    if (error.code === 11000) {
+      const key = Object.keys(error.keyPattern || {})[0];
+      if (key === "email")
+        return res.status(400).json({ error: "Email already exists" });
+      if (key === "nationalIdNumber")
+        return res.status(400).json({ error: "NIC number already exists" });
+      return res.status(400).json({ error: "Duplicate value" });
+    }
+
+    console.error("Update employee error:", error);
     return res.status(500).json({ error: "Failed to update employee" });
   }
 };
@@ -151,6 +176,7 @@ export const updateEmployee = async (req, res) => {
 export const deleteEmployee = async (req, res) => {
   try {
     const { id } = req.params;
+
     const employee = await Employee.findById(id);
     if (!employee) return res.status(404).json({ error: "Employee not found" });
 
@@ -158,7 +184,6 @@ export const deleteEmployee = async (req, res) => {
     employee.employmentStatus = "INACTIVE";
     await employee.save();
 
-    // ✅ AUDIT
     await logAudit(req, {
       action: "EMPLOYEE_DEACTIVATED",
       entityType: "Employee",
@@ -167,7 +192,8 @@ export const deleteEmployee = async (req, res) => {
     });
 
     return res.json({ success: true });
-  } catch {
+  } catch (error) {
+    console.error("Delete employee error:", error);
     return res.status(500).json({ error: "Failed to delete employee" });
   }
 };
