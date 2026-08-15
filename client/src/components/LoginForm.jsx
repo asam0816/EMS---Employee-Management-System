@@ -1,10 +1,9 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft as ArrowLeftIcon, Eye, EyeOff } from "lucide-react";
 import LoginLeftSide from "./LoginLeftSide";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
-import { useNavigate } from "react-router-dom";
 
 const LoginForm = ({ role, title, subtitle }) => {
   const [email, setEmail] = useState("");
@@ -12,6 +11,7 @@ const LoginForm = ({ role, title, subtitle }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -19,13 +19,12 @@ const LoginForm = ({ role, title, subtitle }) => {
     e.preventDefault();
     setError("");
     setLoading(true);
+
     try {
       await login(email, password, role);
       navigate("/dashboard");
-    } catch (error) {
-      toast.error(
-        error.response?.data?.error || error.message || "Login failed",
-      );
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || "Login failed");
     } finally {
       setLoading(false);
     }
@@ -91,7 +90,7 @@ const LoginForm = ({ role, title, subtitle }) => {
                 <button
                   type="button"
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                  onClick={() => setShowPassword(!showPassword)}
+                  onClick={() => setShowPassword((s) => !s)}
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
@@ -105,6 +104,13 @@ const LoginForm = ({ role, title, subtitle }) => {
             >
               {loading ? "Signing in..." : "Sign In"}
             </button>
+
+            <Link
+              to="/forgot-password"
+              className="block text-sm text-indigo-600 hover:underline"
+            >
+              Forgot password?
+            </Link>
           </form>
         </div>
       </div>

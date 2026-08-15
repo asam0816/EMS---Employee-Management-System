@@ -7,6 +7,9 @@ const userSchema = new mongoose.Schema(
     role: { type: String, enum: ["ADMIN", "EMPLOYEE"], default: "EMPLOYEE" },
     // ✅ NEW: profile image for all users (admin + employee)
     image: { type: String, default: null }, // base64 data url
+    // ✅ Forgot password fields
+    resetPasswordTokenHash: { type: String, default: null },
+    resetPasswordTokenExpiresAt: { type: Date, default: null },
   },
   { timestamps: true },
 );
