@@ -1,104 +1,105 @@
 import AuditLog from "../models/AuditLog.js";
 
-const buildFilter = (query) => {
-  const { q, action, from, to } = query;
-  const filter = {};
-
-  if (action) filter.action = action;
-
-  if (from || to) {
-    filter.createdAt = {};
-    if (from) filter.createdAt.$gte = new Date(from);
-    if (to) filter.createdAt.$lte = new Date(to);
-  }
-
-  if (q) {
-    const regex = new RegExp(q, "i");
-    filter.$or = [
-      { actorEmail: regex },
-      { actorRole: regex },
-      { action: regex },
-      { entityType: regex },
-      { entityLabel: regex },
-      { ipAddress: regex },
-    ];
-  }
-
-  return filter;
-};
-
-// GET /api/audit (ADMIN only)
 export const getAuditLogs = async (req, res) => {
   try {
-    const page = Math.max(1, Number(req.query.page || 1));
-    const limit = Math.min(200, Math.max(10, Number(req.query.limit || 50)));
-    const skip = (page - 1) * limit;
+    const {
+      page = 1,
+      limit = 20,
+      q = "",
+      action = "",
+      entityType = "",
+      performedBy = "",
+      startDate = "",
+      endDate = "",
+    } = req.query;
 
-    const filter = buildFilter(req.query);
+    const where = {};
 
-    const [total, logs] = await Promise.all([
-      AuditLog.countDocuments(filter),
-      AuditLog.find(filter)
+    if (action) where.action = action;
+    if (entityType) where.entityType = entityType;
+    if (performedBy) where.performedBy = performedBy;
+
+    if (q && String(q).trim()) {
+      const search = String(q).trim();
+      where.$or = [
+        { action: { $regex: search, $options: "i" } },
+        { entityType: { $regex: search, $options: "i" } },
+        { entityLabel: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    if (startDate || endDate) {
+      where.createdAt = {};
+
+      if (startDate) {
+        const start = new Date(startDate);
+        if (!Number.isNaN(start.getTime())) {
+          where.createdAt.$gte = start;
+        }
+      }
+
+      if (endDate) {
+        const end = new Date(endDate);
+        if (!Number.isNaN(end.getTime())) {
+          end.setHours(23, 59, 59, 999);
+          where.createdAt.$lte = end;
+        }
+      }
+    }
+
+    const pageNum = Math.max(parseInt(page, 10) || 1, 1);
+    const limitNum = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 100);
+    const skip = (pageNum - 1) * limitNum;
+
+    const [items, total] = await Promise.all([
+      AuditLog.find(where)
+        .populate("performedBy", "email role")
         .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(limit)
+        .limit(limitNum)
         .lean(),
+      AuditLog.countDocuments(where),
     ]);
 
     return res.json({
       success: true,
-      data: logs.map((l) => ({ ...l, id: l._id.toString() })),
-      pagination: { total, page, limit, pages: Math.ceil(total / limit) },
+      data: items,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        pages: Math.ceil(total / limitNum),
+      },
     });
-  } catch (err) {
-    console.error("getAuditLogs error:", err);
-    return res.status(500).json({ error: "Failed to fetch audit logs" });
+  } catch (error) {
+    console.error("Get audit logs error:", error);
+    return res.status(500).json({
+      error: "Failed to fetch audit logs",
+    });
   }
 };
 
-// GET /api/audit/export (ADMIN only) -> CSV download
-export const exportAuditLogsCSV = async (req, res) => {
+export const getAuditLogById = async (req, res) => {
   try {
-    const filter = buildFilter(req.query);
-    const logs = await AuditLog.find(filter).sort({ createdAt: -1 }).lean();
-
-    const headers = [
-      "Timestamp",
-      "Actor Email",
-      "Actor Role",
-      "Action",
-      "Entity Type",
-      "Entity Id",
-      "Entity Label",
-      "IP Address",
-    ];
-
-    const esc = (v) => `"${(v ?? "").toString().replace(/"/g, '""')}"`;
-
-    const rows = logs.map((l) =>
-      [
-        esc(new Date(l.createdAt).toISOString()),
-        esc(l.actorEmail),
-        esc(l.actorRole),
-        esc(l.action),
-        esc(l.entityType),
-        esc(l.entityId),
-        esc(l.entityLabel),
-        esc(l.ipAddress),
-      ].join(","),
+    const log = await AuditLog.findById(req.params.id).populate(
+      "performedBy",
+      "email role",
     );
 
-    const csv = [headers.join(","), ...rows].join("\n");
+    if (!log) {
+      return res.status(404).json({
+        error: "Audit log not found",
+      });
+    }
 
-    res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename="audit_logs_${new Date().toISOString().slice(0, 10)}.csv"`,
-    );
-
-    return res.send(csv);
-  } catch (err) {
-    console.error("exportAuditLogsCSV error:", err);
-    return res.status(500).json({ error: "Failed to export audit logs" });
+    return res.json({
+      success: true,
+      data: log,
+    });
+  } catch (error) {
+    console.error("Get audit log by id error:", error);
+    return res.status(500).json({
+      error: "Failed to fetch audit log",
+    });
   }
 };

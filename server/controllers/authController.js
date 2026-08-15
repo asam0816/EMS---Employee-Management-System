@@ -1,11 +1,20 @@
 import User from "../models/User.js";
+import Employee from "../models/Employee.js";
+import Attendance from "../models/Attendance.js";
+
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import sendEmail from "../config/nodemailer.js";
 import { logAudit } from "../utils/auditLogger.js";
 
-// Login for employee and admin
+const computeDayType = (workingHours) => {
+  if (workingHours >= 8) return "Full Day";
+  if (workingHours >= 6) return "Three Quarter Day";
+  if (workingHours >= 4) return "Half Day";
+  return "Short Day";
+};
+
 // POST /api/auth/login
 export const login = async (req, res) => {
   try {
@@ -38,7 +47,7 @@ export const login = async (req, res) => {
       expiresIn: "7d",
     });
 
-    // ✅ audit login (temporarily set session for logAudit)
+    // for audit
     req.session = payload;
     await logAudit(req, {
       action: "AUTH_LOGIN",
@@ -54,24 +63,22 @@ export const login = async (req, res) => {
   }
 };
 
-// Get session
 // GET /api/auth/session
 export const session = (req, res) => {
   return res.json({ user: req.session });
 };
 
-// Change password (logged in)
 // POST /api/auth/change-password
 export const changePassword = async (req, res) => {
   try {
-    const session = req.session;
+    const sessionData = req.session;
     const { currentPassword, newPassword } = req.body;
 
     if (!currentPassword || !newPassword) {
       return res.status(400).json({ error: "Both passwords are required" });
     }
 
-    const user = await User.findById(session.userId);
+    const user = await User.findById(sessionData.userId);
     if (!user) return res.status(404).json({ error: "User not found" });
 
     const isValid = await bcrypt.compare(currentPassword, user.password);
@@ -80,7 +87,7 @@ export const changePassword = async (req, res) => {
     }
 
     const hashed = await bcrypt.hash(newPassword, 10);
-    await User.findByIdAndUpdate(session.userId, { password: hashed });
+    await User.findByIdAndUpdate(sessionData.userId, { password: hashed });
 
     await logAudit(req, {
       action: "PASSWORD_CHANGED",
@@ -96,7 +103,6 @@ export const changePassword = async (req, res) => {
   }
 };
 
-// Forgot password (send email)
 // POST /api/auth/forgot-password
 export const forgotPassword = async (req, res) => {
   try {
@@ -104,8 +110,6 @@ export const forgotPassword = async (req, res) => {
     if (!email) return res.status(400).json({ error: "Email is required" });
 
     const user = await User.findOne({ email }).lean();
-
-    // ✅ Always return success (do not reveal if user exists)
     if (!user) return res.json({ success: true });
 
     const resetToken = crypto.randomBytes(32).toString("hex");
@@ -137,7 +141,6 @@ export const forgotPassword = async (req, res) => {
             </a>
           </p>
           <p>This link expires in 15 minutes.</p>
-          <p>If you didn’t request this, ignore this email.</p>
         </div>
       `,
     });
@@ -149,7 +152,6 @@ export const forgotPassword = async (req, res) => {
   }
 };
 
-// Reset password (using token)
 // POST /api/auth/reset-password/:token
 export const resetPassword = async (req, res) => {
   try {
@@ -171,9 +173,7 @@ export const resetPassword = async (req, res) => {
     if (!user)
       return res.status(400).json({ error: "Invalid or expired token" });
 
-    const hashed = await bcrypt.hash(newPassword, 10);
-
-    user.password = hashed;
+    user.password = await bcrypt.hash(newPassword, 10);
     user.resetPasswordTokenHash = null;
     user.resetPasswordTokenExpiresAt = null;
     await user.save();
@@ -182,5 +182,53 @@ export const resetPassword = async (req, res) => {
   } catch (error) {
     console.error("resetPassword error:", error);
     return res.status(500).json({ error: "Failed to reset password" });
+  }
+};
+
+// POST /api/auth/logout  ✅ AUTO CLOCK-OUT HERE
+export const logout = async (req, res) => {
+  try {
+    const sessionData = req.session;
+    const now = new Date();
+
+    // ✅ close open attendance if EMPLOYEE
+    if (sessionData?.role === "EMPLOYEE") {
+      const employee = await Employee.findOne({
+        userId: sessionData.userId,
+        isDeleted: { $ne: true },
+        employmentStatus: "ACTIVE",
+      });
+
+      if (employee) {
+        const open = await Attendance.findOne({
+          employeeId: employee._id,
+          checkIn: { $ne: null },
+          checkOut: null,
+        }).sort({ checkIn: -1, createdAt: -1 });
+
+        if (open) {
+          const diffHours =
+            (now.getTime() - new Date(open.checkIn).getTime()) /
+            (1000 * 60 * 60);
+
+          open.checkOut = now;
+          open.workingHours = parseFloat(diffHours.toFixed(2));
+          open.dayType = computeDayType(open.workingHours);
+          await open.save();
+        }
+      }
+    }
+
+    await logAudit(req, {
+      action: "AUTH_LOGOUT",
+      entityType: "Auth",
+      entityId: sessionData?.userId,
+      entityLabel: sessionData?.email,
+    });
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error("Logout error:", error);
+    return res.status(500).json({ error: "Logout failed" });
   }
 };

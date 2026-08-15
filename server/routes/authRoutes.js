@@ -1,21 +1,22 @@
 import { Router } from "express";
+import { protect } from "../middleware/auth.js";
+
 import {
   login,
   session,
   changePassword,
   forgotPassword,
   resetPassword,
+  logout,
 } from "../controllers/authController.js";
-import { protect } from "../middleware/auth.js";
 
-const authRouter = Router();
+const router = Router();
 
-authRouter.post("/login", login);
-authRouter.get("/session", protect, session);
-authRouter.post("/change-password", protect, changePassword);
+router.post("/login", login);
+router.get("/session", protect, session);
+router.post("/change-password", protect, changePassword);
+router.post("/forgot-password", forgotPassword);
+router.post("/reset-password/:token", resetPassword);
+router.post("/logout", protect, logout); // ✅ important
 
-// ✅ Forgot password routes
-authRouter.post("/forgot-password", forgotPassword);
-authRouter.post("/reset-password/:token", resetPassword);
-
-export default authRouter;
+export default router;

@@ -15,6 +15,8 @@ import AuditLogs from "./pages/AuditLogs";
 import IDCards from "./pages/IDCards";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import Meetings from "./pages/Meetings";
+import MeetingRoom from "./pages/MeetingRoom";
 
 import LoginForm from "./components/LoginForm";
 import Loading from "./components/Loading";
@@ -81,6 +83,9 @@ const App = () => {
           <Route path="/leave" element={<Leave />} />
           <Route path="/payslips" element={<Payslips />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/meetings" element={<Meetings />} />
+
+          <Route path="/meetings/:id" element={<MeetingRoom />} />
 
           {/* Admin-only */}
           <Route
