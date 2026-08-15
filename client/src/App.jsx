@@ -13,6 +13,8 @@ import Settings from "./pages/Settings";
 import PrintPayslip from "./pages/PrintPayslip";
 import AuditLogs from "./pages/AuditLogs";
 import IDCards from "./pages/IDCards";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 
 import LoginForm from "./components/LoginForm";
 import Loading from "./components/Loading";
@@ -38,8 +40,8 @@ const App = () => {
       <Toaster />
 
       <Routes>
+        {/* Login routes */}
         <Route path="/login" element={<LoginLanding />} />
-
         <Route
           path="/login/admin"
           element={
@@ -61,7 +63,11 @@ const App = () => {
           }
         />
 
-        {/* Protected App with Layout */}
+        {/* ✅ PUBLIC routes (must NOT be inside RequireAuth) */}
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password/:token" element={<ResetPassword />} />
+
+        {/* Protected app with layout */}
         <Route
           element={
             <RequireAuth>
@@ -76,7 +82,7 @@ const App = () => {
           <Route path="/payslips" element={<Payslips />} />
           <Route path="/settings" element={<Settings />} />
 
-          {/* ✅ Admin-only pages INSIDE Layout */}
+          {/* Admin-only */}
           <Route
             path="/audit-logs"
             element={
@@ -95,9 +101,10 @@ const App = () => {
           />
         </Route>
 
-        {/* Print route can stay outside Layout */}
+        {/* Print can be public or protected as you want */}
         <Route path="/print/payslips/:id" element={<PrintPayslip />} />
 
+        {/* Fallback */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </>
