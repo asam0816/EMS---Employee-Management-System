@@ -92,10 +92,12 @@ const Sidebar = () => {
           <div className="flex items-center gap-3">
             <User className="text-white size-7" />
             <div>
-              <p className="font-semibold text-[13px] text-white">
-                Employee MS
+              <p className="font-semibold text-[20px] text-white">
+                TechTitans...
               </p>
-              <p className="text-[11px] text-slate-500">Management System</p>
+              <p className="text-[11px] text-slate-500">
+                Employee Management System
+              </p>
             </div>
           </div>
 

@@ -29,50 +29,89 @@ const IconBox = ({ bg, children }) => (
       justifyContent: "center",
       boxShadow: "0 10px 20px rgba(15,23,42,0.10)",
       flexShrink: 0,
+      boxSizing: "border-box",
     }}
   >
     {children}
   </div>
 );
 
-const InfoRow = ({ iconBg, icon, label, value }) => (
-  <div
-    style={{
-      display: "flex",
-      alignItems: "center",
-      gap: 12,
-      padding: "10px 12px",
-      borderRadius: 16,
-      background: C.white,
-      border: `1px solid ${C.slate200}`,
-      boxShadow: "0 10px 20px rgba(15,23,42,0.06)",
-    }}
-  >
-    <IconBox bg={iconBg}>{icon}</IconBox>
+const InfoRow = ({ iconBg, icon, label, value }) => {
+  const safeValue = value || "—";
 
-    <div style={{ flex: 1, minWidth: 0 }}>
-      <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
-        <span style={{ fontSize: 13, color: C.slate500, fontWeight: 700 }}>
-          {label}
-        </span>
-        <span style={{ color: C.slate300, fontWeight: 900 }}>:</span>
+  // Optional: slightly smaller font for long values
+  const valueFontSize = safeValue.length > 24 ? 12 : 13;
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "flex-start", // ✅ top align so wrapped text isn't clipped
+        gap: 12,
+        padding: "12px 12px",
+        borderRadius: 16,
+        background: C.white,
+        border: `1px solid ${C.slate200}`,
+        boxShadow: "0 10px 20px rgba(15,23,42,0.06)",
+        boxSizing: "border-box",
+      }}
+    >
+      <IconBox bg={iconBg}>{icon}</IconBox>
+
+      {/* ✅ Grid: label | : | value  (value wraps safely) */}
+      <div
+        style={{
+          flex: 1,
+          minWidth: 0,
+          display: "grid",
+          gridTemplateColumns: "90px 14px 1fr",
+          columnGap: 8,
+          rowGap: 0,
+          alignItems: "start",
+          boxSizing: "border-box",
+          paddingTop: 6, // aligns text vertically with icon nicely
+        }}
+      >
         <span
           style={{
             fontSize: 13,
-            color: C.slate900,
+            color: C.slate500,
             fontWeight: 800,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
+            lineHeight: 1.25,
           }}
-          title={value || ""}
         >
-          {value || "—"}
+          {label}
+        </span>
+
+        <span
+          style={{
+            color: C.slate300,
+            fontWeight: 900,
+            textAlign: "center",
+            lineHeight: 1.25,
+          }}
+        >
+          :
+        </span>
+
+        <span
+          style={{
+            fontSize: valueFontSize,
+            color: C.slate900,
+            fontWeight: 900,
+            lineHeight: 1.25,
+            whiteSpace: "normal", // ✅ allow wrap
+            wordBreak: "break-word", // ✅ avoid overflow
+            overflow: "visible", // ✅ no clipping
+          }}
+          title={safeValue}
+        >
+          {safeValue}
         </span>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 const EmployeeIDCard = ({ employee, barcodeValue, cardRefProp }) => {
   const svgRef = useRef(null);
@@ -109,19 +148,22 @@ const EmployeeIDCard = ({ employee, barcodeValue, cardRefProp }) => {
         background: C.white,
         border: `1px solid ${C.slate200}`,
         boxShadow: "0 24px 60px rgba(15,23,42,0.14)",
+        boxSizing: "border-box",
+        fontFamily:
+          "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
       }}
     >
-      {/* HEADER (Gradient) */}
+      {/* HEADER */}
       <div
         style={{
           position: "relative",
-          padding: "18px 18px 92px", // ✅ extra bottom padding for the avatar
+          padding: "18px 18px 92px",
           background:
             "linear-gradient(135deg, #2563EB 0%, #6D28D9 55%, #7C3AED 100%)",
           color: C.white,
+          boxSizing: "border-box",
         }}
       >
-        {/* Decorative dots */}
         <div
           style={{
             position: "absolute",
@@ -134,7 +176,6 @@ const EmployeeIDCard = ({ employee, barcodeValue, cardRefProp }) => {
             backgroundSize: "10px 10px",
           }}
         />
-        {/* Decorative diagonal lines */}
         <div
           style={{
             position: "absolute",
@@ -161,22 +202,23 @@ const EmployeeIDCard = ({ employee, barcodeValue, cardRefProp }) => {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              flexShrink: 0,
             }}
           >
             <IdCard size={18} color="#fff" />
           </div>
 
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13, opacity: 0.9, fontWeight: 700 }}>
-              COMPANY ID CARD
+            <div style={{ fontSize: 13, opacity: 0.92, fontWeight: 800 }}>
+              ID CARD
             </div>
-            <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: 0.3 }}>
+            <div style={{ fontSize: 18, fontWeight: 950, letterSpacing: 0.3 }}>
               TechTitans (Pvt) Ltd
             </div>
           </div>
         </div>
 
-        {/* ✅ WHITE WAVE like reference */}
+        {/* white wave */}
         <svg
           viewBox="0 0 1440 120"
           preserveAspectRatio="none"
@@ -196,11 +238,11 @@ const EmployeeIDCard = ({ employee, barcodeValue, cardRefProp }) => {
         </svg>
       </div>
 
-      {/* ✅ AVATAR (must be above header) */}
+      {/* AVATAR */}
       <div
         style={{
           position: "relative",
-          zIndex: 5, // ✅ ensures it stays above header
+          zIndex: 5,
           marginTop: -72,
           display: "flex",
           justifyContent: "center",
@@ -214,6 +256,7 @@ const EmployeeIDCard = ({ employee, barcodeValue, cardRefProp }) => {
             background: C.white,
             padding: 6,
             boxShadow: "0 22px 40px rgba(15,23,42,0.20)",
+            boxSizing: "border-box",
           }}
         >
           <div
@@ -227,21 +270,18 @@ const EmployeeIDCard = ({ employee, barcodeValue, cardRefProp }) => {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              boxSizing: "border-box",
             }}
           >
             {employee?.image ? (
               <img
                 src={employee.image}
                 alt="profile"
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                }}
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
               />
             ) : (
               <span
-                style={{ fontSize: 28, fontWeight: 900, color: C.slate500 }}
+                style={{ fontSize: 28, fontWeight: 950, color: C.slate500 }}
               >
                 {(employee?.firstName?.[0] || "U").toUpperCase()}
               </span>
@@ -251,7 +291,7 @@ const EmployeeIDCard = ({ employee, barcodeValue, cardRefProp }) => {
       </div>
 
       {/* BODY */}
-      <div style={{ padding: "16px 18px 18px" }}>
+      <div style={{ padding: "16px 18px 18px", boxSizing: "border-box" }}>
         <div style={{ display: "grid", gap: 12 }}>
           <InfoRow
             iconBg={`linear-gradient(135deg, ${C.purple2} 0%, ${C.purple} 100%)`}
@@ -259,21 +299,18 @@ const EmployeeIDCard = ({ employee, barcodeValue, cardRefProp }) => {
             label="Name"
             value={fullName}
           />
-
           <InfoRow
             iconBg={`linear-gradient(135deg, ${C.blue} 0%, #1D4ED8 100%)`}
             icon={<IdCard size={18} color="#fff" />}
             label="NIC"
-            value={employee?.nationalIdNumber || "—"}
+            value={employee?.nationalIdNumber}
           />
-
           <InfoRow
             iconBg={`linear-gradient(135deg, ${C.green} 0%, #059669 100%)`}
             icon={<Briefcase size={18} color="#fff" />}
             label="Position"
-            value={employee?.position || "—"}
+            value={employee?.position}
           />
-
           <InfoRow
             iconBg={`linear-gradient(135deg, ${C.orange} 0%, #EA580C 100%)`}
             icon={<CalendarDays size={18} color="#fff" />}
@@ -282,7 +319,6 @@ const EmployeeIDCard = ({ employee, barcodeValue, cardRefProp }) => {
           />
         </div>
 
-        {/* BARCODE */}
         <div
           style={{
             marginTop: 14,
@@ -291,15 +327,19 @@ const EmployeeIDCard = ({ employee, barcodeValue, cardRefProp }) => {
             background: C.white,
             border: `1px solid ${C.slate200}`,
             boxShadow: "0 12px 22px rgba(15,23,42,0.08)",
+            boxSizing: "border-box",
           }}
         >
-          <svg ref={svgRef} style={{ width: "100%" }} />
+          <svg
+            ref={svgRef}
+            style={{ width: "100%", height: 56, display: "block" }}
+          />
           <div
             style={{
               marginTop: 10,
               textAlign: "center",
               fontSize: 12,
-              fontWeight: 900,
+              fontWeight: 950,
               color: C.purple,
               letterSpacing: 0.6,
             }}
