@@ -21,6 +21,7 @@ export function AuthProvider({ children }) {
     try {
       const { data } = await api.get("/auth/session");
       setUser(data.user);
+      setToken(storedToken);
     } catch (error) {
       localStorage.removeItem("token");
       setUser(null);
@@ -34,27 +35,22 @@ export function AuthProvider({ children }) {
     refreshSession();
   }, []);
 
-  const login = async (email, password, role_type) => {
-    const { data } = await api.post("/auth/login", {
-      email,
-      password,
-      role_type,
-    });
+  // ✅ ONE login (no role_type)
+  const login = async (email, password) => {
+    const { data } = await api.post("/auth/login", { email, password });
 
     localStorage.setItem("token", data.token);
     setToken(data.token);
     setUser(data.user);
+
     return data.user;
   };
 
-  // ✅ UPDATED: call backend logout FIRST (auto clock-out happens there),
-  // then clear token locally
+  // ✅ logout calls backend first (auto clock-out), then clears token
   const logout = async () => {
     try {
-      // token is still in localStorage here, so axios attaches it
       await api.post("/auth/logout");
     } catch (error) {
-      // ignore backend errors, still logout locally
       console.error(
         "Logout API error:",
         error?.response?.data || error?.message,

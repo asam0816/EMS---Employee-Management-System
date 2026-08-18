@@ -9,10 +9,8 @@ const attendanceSchema = new mongoose.Schema(
     },
 
     date: { type: Date, default: null },
-
     attendanceDateKey: { type: String, default: null, index: true },
 
-    // ✅ allow 2 shifts per dayKey
     shiftKey: {
       type: String,
       enum: ["DAY", "NIGHT", null],
@@ -29,7 +27,11 @@ const attendanceSchema = new mongoose.Schema(
       default: "PRESENT",
     },
 
+    // already exists in your schema
     workingHours: { type: Number, default: null },
+
+    // ✅ add this (for exact "3h 3m" display)
+    workingMinutes: { type: Number, default: null },
 
     dayType: {
       type: String,
@@ -40,7 +42,6 @@ const attendanceSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-// ✅ unique per employee + dateKey + shiftKey
 attendanceSchema.index(
   { employeeId: 1, attendanceDateKey: 1, shiftKey: 1 },
   {

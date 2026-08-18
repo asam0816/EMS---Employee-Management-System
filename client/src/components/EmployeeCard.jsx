@@ -1,28 +1,42 @@
-import { PencilIcon, Trash2Icon } from "lucide-react";
 import React from "react";
-import api from "../api/axios";
+import { PencilIcon, Trash2Icon } from "lucide-react";
 import toast from "react-hot-toast";
+import api from "../api/axios";
+
+const getInitials = (employee) => {
+  const f = String(employee?.firstName || "").trim();
+  const l = String(employee?.lastName || "").trim();
+  const a = f ? f[0] : "U";
+  const b = l ? l[0] : "N";
+  return `${a}${b}`.toUpperCase();
+};
 
 const EmployeeCard = ({ employee, onDelete, onEdit }) => {
   const handleDelete = async () => {
-    if (!confirm("Are you sure you want to delete this employee?")) return;
+    const id = employee?.id ?? employee?._id;
+    if (!id) return toast.error("Employee id not found");
+
+    if (!window.confirm("Are you sure you want to delete this employee?"))
+      return;
+
     try {
-      await api.delete(`/employees/${employee.id}`);
-      onDelete();
+      await api.delete(`/employees/${id}`);
+      onDelete?.();
     } catch (err) {
-      toast.error(err.response?.data?.error || err.message);
+      toast.error(
+        err?.response?.data?.error || err?.message || "Delete failed",
+      );
     }
   };
 
   return (
     <div className="group relative card card-hover overflow-hidden">
       {/* Top Image / Avatar Section */}
-      <div className="relative aspect-[4/3] w-full overflow-hidden bg-linear-to-br from-slate-100 to-slate-50">
+      <div className="relative aspect-[4/3] w-full overflow-hidden bg-gradient-to-br from-slate-100 to-slate-50">
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-20 h-20 rounded-full bg-linear-to-br from-indigo-100 to-slate-100 flex items-center justify-center">
+          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-100 to-slate-100 flex items-center justify-center">
             <span className="text-2xl font-semibold text-indigo-400 tracking-tight">
-              {employee.firstName[0]}
-              {employee.lastName[0]}
+              {getInitials(employee)}
             </span>
           </div>
         </div>
@@ -30,31 +44,37 @@ const EmployeeCard = ({ employee, onDelete, onEdit }) => {
 
       <div className="absolute top-3 left-3 flex gap-2">
         <span className="bg-white/90 backdrop-blur-sm px-2.5 py-1 text-xs font-semibold text-slate-600 rounded-lg shadow-sm">
-          {employee.department || "Remote"}
+          {employee?.department || "Remote"}
         </span>
-        {employee.isDeleted && (
+
+        {employee?.isDeleted && (
           <span className="bg-red-500/60 font-medium text-white px-2.5 py-1 text-xs rounded">
             DELETED
           </span>
         )}
       </div>
 
-      {!employee.isDeleted && (
+      {!employee?.isDeleted && (
         <div
-          className="absolute inset-0 bg-linear-to-t from-indigo-700/
-  20 via-transparent to-transparent opacity-0
-  group-hover:opacity-100 transition-opacity flex items-end
-  justify-center pb-6 gap-3"
+          className="
+            absolute inset-0
+            bg-gradient-to-t from-indigo-700/20 via-transparent to-transparent
+            opacity-0 group-hover:opacity-100 transition-opacity
+            flex items-end justify-center pb-6 gap-3
+          "
         >
           <button
-            onClick={() => onEdit(employee)}
+            onClick={() => onEdit?.(employee)}
             className="p-2.5 bg-white/90 backdrop-blur-sm text-slate-700 hover:text-indigo-600 rounded-xl shadow-lg transition-all hover:scale-105"
+            type="button"
           >
             <PencilIcon className="w-4 h-4" />
           </button>
+
           <button
             onClick={handleDelete}
             className="p-2.5 bg-white/90 backdrop-blur-sm text-slate-700 hover:text-rose-600 rounded-xl shadow-lg transition-all hover:scale-105 disabled:opacity-50"
+            type="button"
           >
             <Trash2Icon className="w-4 h-4" />
           </button>
@@ -64,9 +84,11 @@ const EmployeeCard = ({ employee, onDelete, onEdit }) => {
       {/* Bottom Info Section */}
       <div className="p-5">
         <h3 className="text-slate-900 font-medium">
-          {employee.firstName} {employee.lastName}
+          {employee?.firstName || "Unknown"} {employee?.lastName || ""}
         </h3>
-        <p className="text-xs text-slate-500 mt-0.5">{employee.position}</p>
+        <p className="text-xs text-slate-500 mt-0.5">
+          {employee?.position || employee?.jobTitle || "-"}
+        </p>
       </div>
     </div>
   );

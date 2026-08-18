@@ -1,21 +1,17 @@
 // server/jobs/autoCheckoutJob.js
 import cron from "node-cron";
 import Attendance from "../models/Attendance.js";
-import { getColomboDateKey } from "../utils/colomboTime.js";
+import {
+  getColomboDateKey,
+  addDaysToDateKey,
+  buildColomboInstant,
+} from "../utils/colomboTime.js";
 
 const computeDayType = (workingHours) => {
   if (workingHours >= 8) return "Full Day";
   if (workingHours >= 6) return "Three Quarter Day";
   if (workingHours >= 4) return "Half Day";
   return "Short Day";
-};
-
-// YYYY-MM-DD -> previous day YYYY-MM-DD (safe)
-const prevDateKey = (dateKey) => {
-  const [y, m, d] = dateKey.split("-").map(Number);
-  const dt = new Date(Date.UTC(y, m - 1, d));
-  dt.setUTCDate(dt.getUTCDate() - 1);
-  return dt.toISOString().slice(0, 10);
 };
 
 const closeOpenAttendances = async ({
@@ -33,11 +29,13 @@ const closeOpenAttendances = async ({
   if (!openRecords.length) return 0;
 
   for (const rec of openRecords) {
-    const diffHours =
-      (closeAt.getTime() - new Date(rec.checkIn).getTime()) / (1000 * 60 * 60);
+    const diffMs = closeAt.getTime() - new Date(rec.checkIn).getTime();
+    const workingMinutes = Math.max(0, Math.round(diffMs / 60000));
+    const workingHours = parseFloat((diffMs / (1000 * 60 * 60)).toFixed(2));
 
-    rec.checkOut = closeAt; // ✅ closes exactly at the scheduled time instant
-    rec.workingHours = parseFloat(diffHours.toFixed(2));
+    rec.checkOut = closeAt; // closes exactly at scheduled time
+    rec.workingMinutes = workingMinutes;
+    rec.workingHours = workingHours;
     rec.dayType = computeDayType(rec.workingHours);
 
     await rec.save();
@@ -47,20 +45,21 @@ const closeOpenAttendances = async ({
 };
 
 export const startAutoCheckoutJob = () => {
-  // ✅ 05:00 PM Colombo time -> close DAY shift (todayKey)
+  // 05:00 PM Colombo -> close DAY shift (today)
   cron.schedule(
     "0 17 * * *",
     async () => {
       try {
         const now = new Date();
-        now.setSeconds(0, 0);
-
         const todayKey = getColomboDateKey(now);
+
+        // close at exactly 17:00 Colombo instant
+        const closeAt = buildColomboInstant(todayKey, 17, 0, 0, 0);
 
         const closed = await closeOpenAttendances({
           attendanceDateKey: todayKey,
           shiftKey: "DAY",
-          closeAt: now,
+          closeAt,
         });
 
         if (closed) {
@@ -75,21 +74,22 @@ export const startAutoCheckoutJob = () => {
     { timezone: "Asia/Colombo" },
   );
 
-  // ✅ 04:00 AM Colombo time -> close NIGHT shift (yesterdayKey)
+  // 04:00 AM Colombo -> close NIGHT shift (yesterday)
   cron.schedule(
     "0 4 * * *",
     async () => {
       try {
         const now = new Date();
-        now.setSeconds(0, 0);
-
         const todayKey = getColomboDateKey(now);
-        const yesterdayKey = prevDateKey(todayKey);
+        const yesterdayKey = addDaysToDateKey(todayKey, -1);
+
+        // close at exactly today 04:00 (end of yesterday night shift)
+        const closeAt = buildColomboInstant(todayKey, 4, 0, 0, 0);
 
         const closed = await closeOpenAttendances({
           attendanceDateKey: yesterdayKey,
           shiftKey: "NIGHT",
-          closeAt: now,
+          closeAt,
         });
 
         if (closed) {

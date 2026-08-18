@@ -2,14 +2,13 @@ import axios from "axios";
 
 const api = axios.create({
   baseURL: (import.meta.env.VITE_BASE_URL || "http://localhost:5000") + "/api",
+  timeout: 30000,
 });
 
-// Attach Auth token to all network requests
+// Attach Auth token
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
+  if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 

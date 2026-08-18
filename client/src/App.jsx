@@ -17,8 +17,8 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import Meetings from "./pages/Meetings";
 import MeetingRoom from "./pages/MeetingRoom";
+import AdminMonthlyEmployeeReport from "./pages/AdminMonthlyEmployeeReport";
 
-import LoginForm from "./components/LoginForm";
 import Loading from "./components/Loading";
 
 const RequireAuth = ({ children }) => {
@@ -42,30 +42,10 @@ const App = () => {
       <Toaster />
 
       <Routes>
-        {/* Login routes */}
+        {/* ✅ ONE LOGIN PAGE */}
         <Route path="/login" element={<LoginLanding />} />
-        <Route
-          path="/login/admin"
-          element={
-            <LoginForm
-              role="admin"
-              title="Admin Portal"
-              subtitle="Sign in to manage the organization"
-            />
-          }
-        />
-        <Route
-          path="/login/employee"
-          element={
-            <LoginForm
-              role="employee"
-              title="Employee Portal"
-              subtitle="Sign in to access your account"
-            />
-          }
-        />
 
-        {/* ✅ PUBLIC routes (must NOT be inside RequireAuth) */}
+        {/* ✅ Public routes */}
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
 
@@ -77,6 +57,9 @@ const App = () => {
             </RequireAuth>
           }
         >
+          {/* default */}
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/employees" element={<Employees />} />
           <Route path="/attendance" element={<Attendance />} />
@@ -84,7 +67,6 @@ const App = () => {
           <Route path="/payslips" element={<Payslips />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/meetings" element={<Meetings />} />
-
           <Route path="/meetings/:id" element={<MeetingRoom />} />
 
           {/* Admin-only */}
@@ -105,8 +87,15 @@ const App = () => {
             }
           />
         </Route>
+        <Route
+          path="/reports/monthly"
+          element={
+            <RequireAdmin>
+              <AdminMonthlyEmployeeReport />
+            </RequireAdmin>
+          }
+        />
 
-        {/* Print can be public or protected as you want */}
         <Route path="/print/payslips/:id" element={<PrintPayslip />} />
 
         {/* Fallback */}

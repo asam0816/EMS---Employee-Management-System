@@ -16,6 +16,7 @@ const computeDayType = (workingHours) => {
 };
 
 // POST /api/auth/login
+// ✅ role_type is OPTIONAL now. If not provided, login works for both roles.
 export const login = async (req, res) => {
   try {
     const { email, password, role_type } = req.body;
@@ -27,6 +28,7 @@ export const login = async (req, res) => {
     const user = await User.findOne({ email });
     if (!user) return res.status(401).json({ error: "Invalid credentials" });
 
+    // ✅ Only enforce role if role_type is sent
     if (role_type === "admin" && user.role !== "ADMIN") {
       return res.status(401).json({ error: "Not authorized as admin" });
     }
@@ -39,7 +41,7 @@ export const login = async (req, res) => {
 
     const payload = {
       userId: user._id.toString(),
-      role: user.role,
+      role: user.role, // ADMIN / EMPLOYEE
       email: user.email,
     };
 
@@ -110,6 +112,8 @@ export const forgotPassword = async (req, res) => {
     if (!email) return res.status(400).json({ error: "Email is required" });
 
     const user = await User.findOne({ email }).lean();
+
+    // Always success (do not reveal if email exists)
     if (!user) return res.json({ success: true });
 
     const resetToken = crypto.randomBytes(32).toString("hex");
@@ -191,7 +195,6 @@ export const logout = async (req, res) => {
     const sessionData = req.session;
     const now = new Date();
 
-    // ✅ close open attendance if EMPLOYEE
     if (sessionData?.role === "EMPLOYEE") {
       const employee = await Employee.findOne({
         userId: sessionData.userId,
