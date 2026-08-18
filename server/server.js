@@ -15,6 +15,10 @@ import auditRouter from "./routes/auditRoutes.js";
 import idCardRouter from "./routes/idCardRoutes.js";
 import meetingRouter from "./routes/meetingRoutes.js";
 import { startAutoCheckoutJob } from "./jobs/autoCheckoutJob.js";
+import summaryRouter from "./routes/summaryRoutes.js";
+import reportRouter from "./routes/reportRoutes.js";
+import adminDashboardRouter from "./routes/adminDashboardRoutes.js";
+import { startLiveWorkingHoursJob } from "./jobs/liveWorkingHoursJob.js";
 
 import { serve } from "inngest/express";
 import { inngest, functions } from "./inngest/index.js";
@@ -45,6 +49,9 @@ app.use("/api/dashboard", dashboardRouter);
 app.use("/api/audit", auditRouter);
 app.use("/api/id-cards", idCardRouter);
 app.use("/api/meetings", meetingRouter);
+app.use("/api/summary", summaryRouter);
+app.use("/api/reports", reportRouter);
++app.use("/api/admin-dashboard", adminDashboardRouter);
 
 app.use("/api/inngest", serve({ client: inngest, functions }));
 
@@ -52,5 +59,6 @@ await connectDB();
 
 // ✅ start cron AFTER DB connection
 startAutoCheckoutJob();
+startLiveWorkingHoursJob();
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
