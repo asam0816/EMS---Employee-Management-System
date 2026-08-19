@@ -32,6 +32,12 @@ const employeeSchema = new mongoose.Schema(
     isDeleted: { type: Boolean, default: false },
     bio: { type: String, default: "" },
     department: { type: String, enum: DEPARTMENTS },
+    shiftKey: {
+      type: String,
+      enum: ["DAY", "NIGHT"],
+      default: "DAY",
+      index: true,
+    },
   },
   { timestamps: true },
 );
