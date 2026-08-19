@@ -5,35 +5,55 @@ import { Link } from "react-router-dom";
 import { CalendarDays, FileText, DollarSign, ArrowRight } from "lucide-react";
 import Loading from "./Loading";
 
+const COLOMBO_TZ = "Asia/Colombo";
+
+const normalizeArray = (payload) => {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.data)) return payload.data; // { data: [...] }
+  if (Array.isArray(payload?.items)) return payload.items;
+  return [];
+};
+
+const safeUpper = (v, fb = "") =>
+  String(v ?? fb)
+    .toUpperCase()
+    .trim();
+
 const formatMoney = (value) => {
   const n = Number(value);
   if (!Number.isFinite(n)) return "-";
   return `$${n.toLocaleString()}`;
 };
 
-const normalizeArray = (payload) => {
-  if (Array.isArray(payload)) return payload;
-  if (Array.isArray(payload?.data)) return payload.data;
-  if (Array.isArray(payload?.items)) return payload.items;
-  if (Array.isArray(payload?.rows)) return payload.rows;
-  return [];
-};
+// YYYY-MM-DD in Colombo TZ from a Date/ISO
+const colomboDateKeyFrom = (value) => {
+  if (!value) return null;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
 
-const safeUpper = (v, fallback = "") =>
-  String(v ?? fallback)
-    .toUpperCase()
-    .trim();
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: COLOMBO_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(d);
+
+  const y = parts.find((p) => p.type === "year")?.value;
+  const m = parts.find((p) => p.type === "month")?.value;
+  const day = parts.find((p) => p.type === "day")?.value;
+
+  if (!y || !m || !day) return null;
+  return `${y}-${m}-${day}`;
+};
 
 const KpiCard = ({ label, value, Icon }) => {
   return (
     <div className="card p-6 flex items-center justify-between relative overflow-hidden">
       <div className="absolute left-0 top-0 bottom-0 w-1 rounded-r-full bg-slate-300" />
-
       <div>
         <p className="text-sm text-slate-500">{label}</p>
         <p className="text-3xl font-semibold text-slate-900 mt-1">{value}</p>
       </div>
-
       <div className="p-3 bg-slate-100 rounded-xl">
         <Icon className="w-5 h-5 text-slate-600" />
       </div>
@@ -41,7 +61,7 @@ const KpiCard = ({ label, value, Icon }) => {
   );
 };
 
-const EmployeeDashboard = () => {
+export default function EmployeeDashboard() {
   const [loading, setLoading] = useState(true);
 
   const [profile, setProfile] = useState(null);
@@ -58,32 +78,43 @@ const EmployeeDashboard = () => {
 
         const [pRes, aRes, lRes, payRes] = await Promise.allSettled([
           api.get("/profile"),
-          api.get("/attendance?limit=500"),
+          // ✅ NEW attendance endpoint (shift-based system)
+          api.get("/attendance/history?limit=500"),
           api.get("/leave?limit=500"),
           api.get("/payslips?limit=1"),
         ]);
 
         if (!mounted) return;
 
-        // 1) profile
+        // profile
         if (pRes.status === "fulfilled") {
           setProfile(pRes.value?.data ?? null);
         }
 
-        // 2) attendance -> Days Present (PRESENT or LATE)
+        // attendance -> Days Present (unique days where status PRESENT/LATE)
         if (aRes.status === "fulfilled") {
           const payload = aRes.value?.data;
-          const list = normalizeArray(payload);
+          const list = normalizeArray(payload); // supports {success,data:[...]} and {data:[...]}
 
-          const presentCount = list.filter((r) => {
+          const presentDayKeys = new Set();
+
+          for (const r of list) {
             const st = safeUpper(r?.status);
-            return st === "PRESENT" || st === "LATE";
-          }).length;
+            if (st !== "PRESENT" && st !== "LATE") continue;
 
-          setDaysPresent(presentCount);
+            const key =
+              r?.attendanceDateKey ||
+              colomboDateKeyFrom(r?.checkIn) ||
+              colomboDateKeyFrom(r?.createdAt) ||
+              null;
+
+            if (key) presentDayKeys.add(key);
+          }
+
+          setDaysPresent(presentDayKeys.size);
         }
 
-        // 3) leaves -> pending count
+        // leaves -> pending count
         if (lRes.status === "fulfilled") {
           const payload = lRes.value?.data;
           const list = normalizeArray(payload);
@@ -95,7 +126,7 @@ const EmployeeDashboard = () => {
           setPendingLeaves(pendingCount);
         }
 
-        // 4) payslip -> latest amount
+        // payslip -> latest amount
         if (payRes.status === "fulfilled") {
           const payload = payRes.value?.data;
           const list = normalizeArray(payload);
@@ -116,7 +147,7 @@ const EmployeeDashboard = () => {
           e?.response?.data?.error || e?.message || "Failed to load dashboard",
         );
       } finally {
-        if (mounted) setLoading(false);
+        setLoading(false);
       }
     };
 
@@ -153,7 +184,7 @@ const EmployeeDashboard = () => {
         <p className="text-slate-500 mt-2">{subtitle}</p>
       </div>
 
-      {/* KPI Row (ONLY these 3 cards) */}
+      {/* KPI Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         <KpiCard label="Days Present" value={daysPresent} Icon={CalendarDays} />
         <KpiCard label="Pending Leaves" value={pendingLeaves} Icon={FileText} />
@@ -164,7 +195,7 @@ const EmployeeDashboard = () => {
         />
       </div>
 
-      {/* Actions (ONLY these buttons) */}
+      {/* Actions */}
       <div className="flex flex-wrap gap-4">
         <Link
           to="/attendance"
@@ -182,6 +213,4 @@ const EmployeeDashboard = () => {
       </div>
     </div>
   );
-};
-
-export default EmployeeDashboard;
+}

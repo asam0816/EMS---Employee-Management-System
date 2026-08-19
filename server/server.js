@@ -19,6 +19,7 @@ import summaryRouter from "./routes/summaryRoutes.js";
 import reportRouter from "./routes/reportRoutes.js";
 import adminDashboardRouter from "./routes/adminDashboardRoutes.js";
 import { startLiveWorkingHoursJob } from "./jobs/liveWorkingHoursJob.js";
+import { startAutoClockOutProcessor } from "./jobs/autoClockOutProcessor.js";
 
 import { serve } from "inngest/express";
 import { inngest, functions } from "./inngest/index.js";
@@ -60,5 +61,6 @@ await connectDB();
 // ✅ start cron AFTER DB connection
 startAutoCheckoutJob();
 startLiveWorkingHoursJob();
+startAutoClockOutProcessor();
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

@@ -3,347 +3,220 @@ import Employee from "../models/Employee.js";
 import Attendance from "../models/Attendance.js";
 import { logAudit } from "../utils/auditLogger.js";
 import {
-  formatColomboDateTime,
-  getColomboDateKey,
-  getColomboMinutes,
-} from "../utils/colomboTime.js";
-import {
-  getShiftBounds,
-  getShiftContext,
-  SHIFT_LABELS,
-} from "../utils/shifts.js";
+  getActiveShiftContext,
+  computeLateMinutes,
+  computeDayType,
+} from "../utils/shiftEngine.js";
 
 const MIN_SECONDS_BEFORE_CLOCKOUT = 10;
-const CLOCK_IN_LATE_GRACE_MIN = 10; // 10 minutes grace
-const CLOCK_OUT_EXTRA_GRACE_MIN = 180; // allow clock out up to +3 hours after shift end
-
-const computeDayType = (workingHours) => {
-  if (workingHours >= 8) return "Full Day";
-  if (workingHours >= 6) return "Three Quarter Day";
-  if (workingHours >= 4) return "Half Day";
-  return "Short Day";
-};
 
 const mustGetEmployee = async (req) => {
-  const session = req.session;
+  const userId = req?.session?.userId;
+  if (!userId) return null;
 
-  const employee = await Employee.findOne({
-    userId: session?.userId,
+  return Employee.findOne({
+    userId,
     isDeleted: { $ne: true },
     employmentStatus: "ACTIVE",
-  });
-
-  return employee || null;
+  }).lean();
 };
 
-// If any old record has missing shiftKey/dateKey, derive from checkIn
-const deriveKeyFromCheckIn = (rec) => {
-  const base = rec?.checkIn || rec?.date || rec?.createdAt || new Date();
-  const minutes = getColomboMinutes(base);
-
-  const inferredShiftKey =
-    minutes >= 8 * 60 && minutes <= 17 * 60 ? "DAY" : "NIGHT";
-  let attendanceDateKey = rec?.attendanceDateKey || getColomboDateKey(base);
-
-  // if NIGHT and time is 00:00..04:00 => previous dateKey
-  if (inferredShiftKey === "NIGHT" && minutes <= 4 * 60) {
-    const [y, m, d] = attendanceDateKey.split("-").map(Number);
-    const dt = new Date(Date.UTC(y, m - 1, d));
-    dt.setUTCDate(dt.getUTCDate() - 1);
-    attendanceDateKey = dt.toISOString().slice(0, 10);
-  }
-
-  return { shiftKey: rec?.shiftKey || inferredShiftKey, attendanceDateKey };
-};
-
-const normalizeAttendance = (record) => {
-  const obj = record?.toObject ? record.toObject() : record;
-  const derived = deriveKeyFromCheckIn(obj);
-
-  const shiftKey = obj?.shiftKey || derived.shiftKey;
-  const attendanceDateKey = obj?.attendanceDateKey || derived.attendanceDateKey;
-
-  return {
-    ...obj,
-    id: obj?._id?.toString?.() || obj?.id,
-    shiftKey,
-    attendanceDateKey,
-    shiftLabel: shiftKey ? SHIFT_LABELS[shiftKey] : null,
-    checkInLabel: obj?.checkIn ? formatColomboDateTime(obj.checkIn) : null,
-    checkOutLabel: obj?.checkOut ? formatColomboDateTime(obj.checkOut) : null,
-  };
-};
-
-const canClockOutNow = (openRecord, now) => {
-  const derived = deriveKeyFromCheckIn(openRecord);
-  const shiftKey = openRecord.shiftKey || derived.shiftKey;
-  const attendanceDateKey =
-    openRecord.attendanceDateKey || derived.attendanceDateKey;
-
-  const { shiftEndAt } = getShiftBounds({ attendanceDateKey, shiftKey });
-  if (!shiftEndAt) return true;
-
-  const max = new Date(
-    shiftEndAt.getTime() + CLOCK_OUT_EXTRA_GRACE_MIN * 60000,
+const minutesBetween = (a, b) =>
+  Math.max(
+    0,
+    Math.round((new Date(b).getTime() - new Date(a).getTime()) / 60000),
   );
-  return now.getTime() <= max.getTime();
+
+const toHours = (mins) => Math.round((mins / 60) * 100) / 100;
+
+const normalize = (doc) => {
+  const o = doc?.toObject ? doc.toObject() : doc;
+  return { ...o, id: o?._id?.toString?.() || o?.id };
 };
 
-// ✅ GET /api/attendance/status
-export const getAttendanceStatus = async (req, res) => {
+// ✅ Updates live working time in DB for open record
+const refreshOpenWorkingTime = async (openDoc) => {
+  if (!openDoc?.checkIn || openDoc?.checkOut) return openDoc;
+
+  const now = new Date();
+  const mins = minutesBetween(openDoc.checkIn, now);
+  const hrs = toHours(mins);
+
+  // Update DB
+  await Attendance.updateOne(
+    { _id: openDoc._id, checkOut: null, attendanceState: "WORKING" },
+    { $set: { workingMinutes: mins, workingHours: hrs } },
+  );
+
+  // Update local object for response
+  openDoc.workingMinutes = mins;
+  openDoc.workingHours = hrs;
+
+  return openDoc;
+};
+
+// GET /api/attendance/today
+export const getTodayAttendance = async (req, res) => {
   try {
     const employee = await mustGetEmployee(req);
     if (!employee) return res.status(404).json({ error: "Employee not found" });
 
-    const now = new Date();
-    const shift = getShiftContext(now);
+    const shift = getActiveShiftContext(new Date());
 
-    const open = await Attendance.findOne({
+    // open record (any date)
+    let open = await Attendance.findOne({
       employeeId: employee._id,
       checkIn: { $ne: null },
       checkOut: null,
-    }).sort({ checkIn: -1, createdAt: -1 });
+      attendanceState: "WORKING",
+    }).sort({ checkIn: -1 });
 
-    // return both keys to prevent frontend mismatch
-    const inShiftWindow = !!shift.inShiftWindow;
-
-    // If open record exists, allow clock out (even if outside shift) within grace window
     if (open) {
-      const allowed = canClockOutNow(open, now);
-
-      return res.json({
-        now,
-        isShiftTime: inShiftWindow,
-        inShiftWindow,
-        currentShift: {
-          ...shift,
-          shiftLabel: shift.shiftKey ? SHIFT_LABELS[shift.shiftKey] : null,
-        },
-        openRecord: normalizeAttendance(open),
-        canClockIn: false,
-        canClockOut: allowed,
-        reason: allowed ? null : "Clock-out time expired. Contact admin.",
-      });
+      open = await refreshOpenWorkingTime(open);
     }
 
-    // No open record: clock-in only if inside window and not already completed for this shift
-    if (!inShiftWindow) {
-      return res.json({
-        now,
-        isShiftTime: false,
-        inShiftWindow: false,
-        currentShift: {
-          ...shift,
-          shiftLabel: null,
-        },
-        openRecord: null,
-        canClockIn: false,
-        canClockOut: false,
-        reason:
-          "Outside shift time. Allowed: 08:00 AM–05:00 PM and 07:00 PM–04:00 AM (Colombo).",
-      });
-    }
-
-    const existing = await Attendance.findOne({
+    const todayRecord = await Attendance.findOne({
       employeeId: employee._id,
-      attendanceDateKey: shift.attendanceDateKey,
-      shiftKey: shift.shiftKey,
+      attendanceDateKey: shift.workDateKey,
     });
 
-    // If already completed this shift, no actions
-    if (existing?.checkIn && existing?.checkOut) {
-      return res.json({
-        now,
-        isShiftTime: true,
-        inShiftWindow: true,
-        currentShift: {
-          ...shift,
-          shiftLabel: shift.shiftKey ? SHIFT_LABELS[shift.shiftKey] : null,
-        },
-        openRecord: null,
-        todayRecord: normalizeAttendance(existing),
-        canClockIn: false,
-        canClockOut: false,
-        reason: "Attendance already completed for this shift.",
-      });
-    }
+    const canClockIn = shift.inWindow && !open && !todayRecord?.checkIn;
+    const canClockOut = !!open;
 
-    // else allow clock in
     return res.json({
-      now,
-      isShiftTime: true,
-      inShiftWindow: true,
-      currentShift: {
-        ...shift,
-        shiftLabel: shift.shiftKey ? SHIFT_LABELS[shift.shiftKey] : null,
+      success: true,
+      employee: {
+        id: String(employee._id),
+        name: `${employee.firstName || ""} ${employee.lastName || ""}`.trim(),
       },
-      openRecord: null,
-      todayRecord: existing ? normalizeAttendance(existing) : null,
-      canClockIn: true,
-      canClockOut: false,
-      reason: null,
+      shift: shift.inWindow
+        ? {
+            shiftKey: shift.shiftKey,
+            shiftName: shift.shiftName,
+            label: shift.label,
+            nextDay: shift.nextDay,
+            workDateKey: shift.workDateKey,
+            shiftStartAt: shift.shiftStartAt,
+            scheduledEndAt: shift.scheduledEndAt,
+            inWindow: true,
+          }
+        : {
+            shiftKey: null,
+            shiftName: null,
+            label: null,
+            nextDay: false,
+            workDateKey: shift.workDateKey,
+            shiftStartAt: null,
+            scheduledEndAt: null,
+            inWindow: false,
+          },
+      openRecord: open ? normalize(open) : null,
+      todayRecord: todayRecord ? normalize(todayRecord) : null,
+      canClockIn,
+      canClockOut,
     });
   } catch (e) {
-    console.error("getAttendanceStatus error:", e);
-    return res.status(500).json({ error: "Failed to load attendance status" });
+    console.error("getTodayAttendance error:", e);
+    return res.status(500).json({ error: "Failed to load attendance" });
   }
 };
 
-// internal clock-in
-const doClockIn = async (req, res) => {
-  const employee = await mustGetEmployee(req);
-  if (!employee) return res.status(404).json({ error: "Employee not found" });
+// POST /api/attendance/clock-in
+export const clockIn = async (req, res) => {
+  try {
+    const employee = await mustGetEmployee(req);
+    if (!employee) return res.status(404).json({ error: "Employee not found" });
 
-  const now = new Date();
+    const shift = getActiveShiftContext(new Date());
+    if (!shift.inWindow) {
+      return res.status(403).json({
+        error:
+          "Clock in is allowed only during shift time (08:00–17:00 or 19:00–04:00).",
+      });
+    }
 
-  // prevent multiple open
-  const open = await Attendance.findOne({
-    employeeId: employee._id,
-    checkIn: { $ne: null },
-    checkOut: null,
-  });
-  if (open)
-    return res
-      .status(400)
-      .json({ error: "Already clocked in. Please clock out." });
-
-  const shift = getShiftContext(now);
-  if (!shift.inShiftWindow) {
-    return res.status(403).json({
-      error:
-        "Clock In allowed only: 08:00 AM–05:00 PM and 07:00 PM–04:00 AM (Colombo).",
-    });
-  }
-
-  const existing = await Attendance.findOne({
-    employeeId: employee._id,
-    attendanceDateKey: shift.attendanceDateKey,
-    shiftKey: shift.shiftKey,
-  });
-
-  if (existing?.checkIn && existing?.checkOut) {
-    return res
-      .status(400)
-      .json({ error: "Attendance already completed for this shift." });
-  }
-
-  const shiftStart = shift.shiftStartAt;
-  const diffMin = shiftStart
-    ? Math.floor((now.getTime() - shiftStart.getTime()) / 60000)
-    : 0;
-  const lateMinutes = Math.max(0, diffMin - CLOCK_IN_LATE_GRACE_MIN);
-  const isLate = lateMinutes > 0;
-
-  const attendance =
-    existing ||
-    new Attendance({
+    const open = await Attendance.findOne({
       employeeId: employee._id,
-      date: now,
-      attendanceDateKey: shift.attendanceDateKey,
-      shiftKey: shift.shiftKey,
+      checkIn: { $ne: null },
+      checkOut: null,
+      attendanceState: "WORKING",
+    });
+    if (open)
+      return res
+        .status(400)
+        .json({ error: "Already clocked in. Please clock out." });
+
+    const existingDay = await Attendance.findOne({
+      employeeId: employee._id,
+      attendanceDateKey: shift.workDateKey,
     });
 
-  attendance.checkIn = now;
-  attendance.checkOut = null;
-  attendance.status = isLate ? "LATE" : "PRESENT";
-  attendance.lateMinutes = lateMinutes;
-  attendance.workingHours = null;
-  attendance.workingMinutes = null;
-  attendance.dayType = null;
+    if (existingDay?.checkIn) {
+      if (existingDay.checkOut) {
+        return res.status(400).json({
+          error:
+            "Attendance already completed for today. Only one shift per day is allowed.",
+        });
+      }
+      return res
+        .status(400)
+        .json({ error: "Already clocked in for today. Please clock out." });
+    }
 
-  await attendance.save();
+    const now = new Date();
+    const lateMinutes = computeLateMinutes(now, shift.shiftStartAt);
+    const status = lateMinutes > 0 ? "LATE" : "PRESENT";
 
-  await logAudit(req, {
-    action: "ATTENDANCE_CHECK_IN",
-    entityType: "Attendance",
-    entityId: attendance._id,
-    entityLabel: `${employee.firstName} ${employee.lastName}`,
-    meta: {
-      attendanceDateKey: attendance.attendanceDateKey,
-      shiftKey: attendance.shiftKey,
-      status: attendance.status,
-      lateMinutes: attendance.lateMinutes,
-    },
-  });
+    const doc =
+      existingDay ||
+      new Attendance({
+        employeeId: employee._id,
+        attendanceDateKey: shift.workDateKey,
+      });
 
-  return res.json({
-    success: true,
-    type: "CHECK_IN",
-    data: normalizeAttendance(attendance),
-  });
-};
+    doc.shiftKey = shift.shiftKey;
+    doc.checkIn = now;
+    doc.checkOut = null;
+    doc.scheduledEndAt = shift.scheduledEndAt;
+    doc.attendanceState = "WORKING";
+    doc.status = status;
+    doc.lateMinutes = lateMinutes;
 
-// internal clock-out
-const doClockOut = async (req, res) => {
-  const employee = await mustGetEmployee(req);
-  if (!employee) return res.status(404).json({ error: "Employee not found" });
+    // ✅ IMPORTANT: store NULL, not 0 (so UI doesn't get stuck at 0)
+    doc.workingMinutes = null;
+    doc.workingHours = null;
 
-  const now = new Date();
+    doc.totalWorkingMinutes = null;
+    doc.dayType = null;
 
-  const open = await Attendance.findOne({
-    employeeId: employee._id,
-    checkIn: { $ne: null },
-    checkOut: null,
-  }).sort({ checkIn: -1, createdAt: -1 });
+    await doc.save();
 
-  if (!open)
-    return res.status(400).json({ error: "No active clock-in found." });
-
-  const secondsSinceCheckIn =
-    (now.getTime() - new Date(open.checkIn).getTime()) / 1000;
-
-  if (secondsSinceCheckIn < MIN_SECONDS_BEFORE_CLOCKOUT) {
-    return res.status(400).json({
-      error: `Please wait ${Math.ceil(MIN_SECONDS_BEFORE_CLOCKOUT - secondsSinceCheckIn)} seconds before clocking out.`,
+    await logAudit(req, {
+      action: "ATTENDANCE_CLOCK_IN",
+      entityType: "Attendance",
+      entityId: doc._id,
+      entityLabel: `${employee.firstName} ${employee.lastName}`,
+      meta: {
+        attendanceDateKey: doc.attendanceDateKey,
+        shiftKey: doc.shiftKey,
+        status: doc.status,
+        lateMinutes,
+      },
     });
+
+    return res.json({ success: true, data: normalize(doc) });
+  } catch (e) {
+    if (e?.code === 11000)
+      return res
+        .status(409)
+        .json({ error: "Attendance already exists for today." });
+    console.error("clockIn error:", e);
+    return res.status(500).json({ error: "Clock in failed" });
   }
-
-  if (!canClockOutNow(open, now)) {
-    return res
-      .status(403)
-      .json({ error: "Clock-out time expired. Contact admin." });
-  }
-
-  const diffMs = now.getTime() - new Date(open.checkIn).getTime();
-  const workingMinutes = Math.max(0, Math.round(diffMs / 60000));
-  const workingHours = parseFloat((diffMs / (1000 * 60 * 60)).toFixed(2));
-
-  // ensure keys exist (for older records)
-  const derived = deriveKeyFromCheckIn(open);
-  open.shiftKey = open.shiftKey || derived.shiftKey;
-  open.attendanceDateKey = open.attendanceDateKey || derived.attendanceDateKey;
-
-  open.checkOut = now;
-  open.workingMinutes = workingMinutes;
-  open.workingHours = workingHours;
-  open.dayType = computeDayType(open.workingHours);
-
-  await open.save();
-
-  await logAudit(req, {
-    action: "ATTENDANCE_CHECK_OUT",
-    entityType: "Attendance",
-    entityId: open._id,
-    entityLabel: `${employee.firstName} ${employee.lastName}`,
-    meta: {
-      attendanceDateKey: open.attendanceDateKey,
-      shiftKey: open.shiftKey,
-      workingHours: open.workingHours,
-      workingMinutes: open.workingMinutes,
-      dayType: open.dayType,
-    },
-  });
-
-  return res.json({
-    success: true,
-    type: "CHECK_OUT",
-    data: normalizeAttendance(open),
-  });
 };
 
-// ✅ POST /api/attendance  (toggle endpoint)
-// IMPORTANT: this export name must match your routes import
-export const clockInOut = async (req, res) => {
+// POST /api/attendance/clock-out
+export const clockOut = async (req, res) => {
   try {
     const employee = await mustGetEmployee(req);
     if (!employee) return res.status(404).json({ error: "Employee not found" });
@@ -352,54 +225,89 @@ export const clockInOut = async (req, res) => {
       employeeId: employee._id,
       checkIn: { $ne: null },
       checkOut: null,
+      attendanceState: "WORKING",
+    }).sort({ checkIn: -1 });
+
+    if (!open)
+      return res.status(400).json({ error: "No active clock-in found." });
+
+    const now = new Date();
+    const seconds = (now.getTime() - new Date(open.checkIn).getTime()) / 1000;
+    if (seconds < MIN_SECONDS_BEFORE_CLOCKOUT) {
+      return res
+        .status(400)
+        .json({ error: "Please wait a few seconds before clocking out." });
+    }
+
+    open.checkOut = now;
+    open.attendanceState = "COMPLETED";
+
+    const mins = minutesBetween(open.checkIn, open.checkOut);
+    open.totalWorkingMinutes = mins;
+    open.workingMinutes = mins;
+    open.workingHours = toHours(mins);
+    open.dayType = computeDayType(open.workingHours);
+
+    await open.save();
+
+    await logAudit(req, {
+      action: "ATTENDANCE_CLOCK_OUT",
+      entityType: "Attendance",
+      entityId: open._id,
+      entityLabel: `${employee.firstName} ${employee.lastName}`,
+      meta: {
+        attendanceDateKey: open.attendanceDateKey,
+        shiftKey: open.shiftKey,
+        minutes: mins,
+      },
     });
 
-    if (open) return doClockOut(req, res);
-    return doClockIn(req, res);
+    return res.json({ success: true, data: normalize(open) });
   } catch (e) {
-    console.error("clockInOut error:", e);
-    return res.status(500).json({ error: "Operation failed" });
+    console.error("clockOut error:", e);
+    return res.status(500).json({ error: "Clock out failed" });
   }
 };
 
-// ✅ GET /api/attendance
-export const getAttendance = async (req, res) => {
+// GET /api/attendance/history?limit=20
+export const getHistory = async (req, res) => {
   try {
     const employee = await mustGetEmployee(req);
     if (!employee) return res.status(404).json({ error: "Employee not found" });
 
-    const limit = Math.min(parseInt(req.query.limit || 30, 10), 500);
+    const limit = Math.min(Number(req.query.limit || 20), 500);
 
-    const now = new Date();
-    const shift = getShiftContext(now);
+    let rows = await Attendance.find({ employeeId: employee._id })
+      .sort({ attendanceDateKey: -1, createdAt: -1 })
+      .limit(limit);
 
-    const historyRaw = await Attendance.find({ employeeId: employee._id })
-      .sort({ checkIn: -1, createdAt: -1 })
-      .limit(limit)
-      .lean();
+    // ✅ update live time for the newest open record in the list (if any)
+    const open = rows.find(
+      (r) => r.checkIn && !r.checkOut && r.attendanceState === "WORKING",
+    );
+    if (open) await refreshOpenWorkingTime(open);
 
-    const history = historyRaw.map(normalizeAttendance);
+    rows = rows.map((r) => r.toObject());
 
-    const open = history.find((r) => r.checkIn && !r.checkOut) || null;
-
-    const currentShiftRecord =
-      history.find(
-        (r) =>
-          r.attendanceDateKey === shift.attendanceDateKey &&
-          r.shiftKey === shift.shiftKey,
-      ) || null;
-
-    return res.json({
-      data: history,
-      todayRecord: open || currentShiftRecord,
-      currentShift: {
-        ...shift,
-        shiftLabel: shift.shiftKey ? SHIFT_LABELS[shift.shiftKey] : null,
-      },
-      employee: { isDeleted: employee.isDeleted },
-    });
+    return res.json({ success: true, data: rows });
   } catch (e) {
-    console.error("getAttendance error:", e);
-    return res.status(500).json({ error: "Failed to fetch attendance" });
+    console.error("getHistory error:", e);
+    return res.status(500).json({ error: "Failed to load history" });
   }
+};
+
+// POST /api/attendance (toggle)
+export const clockInOut = async (req, res) => {
+  const employee = await mustGetEmployee(req);
+  if (!employee) return res.status(404).json({ error: "Employee not found" });
+
+  const open = await Attendance.findOne({
+    employeeId: employee._id,
+    checkIn: { $ne: null },
+    checkOut: null,
+    attendanceState: "WORKING",
+  });
+
+  if (open) return clockOut(req, res);
+  return clockIn(req, res);
 };

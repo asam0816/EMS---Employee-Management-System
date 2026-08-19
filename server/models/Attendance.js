@@ -6,32 +6,43 @@ const attendanceSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Employee",
       required: true,
+      index: true,
     },
 
-    date: { type: Date, default: null },
-    attendanceDateKey: { type: String, default: null, index: true },
+    // Work date key (shift base day) YYYY-MM-DD
+    attendanceDateKey: { type: String, required: true, index: true },
 
     shiftKey: {
       type: String,
-      enum: ["DAY", "NIGHT", null],
-      default: null,
+      enum: ["DAY", "NIGHT"],
+      required: true,
       index: true,
     },
 
     checkIn: { type: Date, default: null },
     checkOut: { type: Date, default: null },
 
-    status: {
+    scheduledEndAt: { type: Date, default: null, index: true },
+
+    attendanceState: {
       type: String,
-      enum: ["PRESENT", "ABSENT", "LATE"],
-      default: "PRESENT",
+      enum: ["WORKING", "COMPLETED", "AUTO_CLOCKED_OUT"],
+      default: null,
+      index: true,
     },
 
-    // already exists in your schema
-    workingHours: { type: Number, default: null },
+    status: {
+      type: String,
+      enum: ["PRESENT", "LATE", "ABSENT"],
+      default: "PRESENT",
+      index: true,
+    },
 
-    // ✅ add this (for exact "3h 3m" display)
+    lateMinutes: { type: Number, default: 0 },
+
+    totalWorkingMinutes: { type: Number, default: null },
     workingMinutes: { type: Number, default: null },
+    workingHours: { type: Number, default: null },
 
     dayType: {
       type: String,
@@ -42,15 +53,10 @@ const attendanceSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
+// ✅ IMPORTANT: only one attendance per employee per work date (per day)
 attendanceSchema.index(
-  { employeeId: 1, attendanceDateKey: 1, shiftKey: 1 },
-  {
-    unique: true,
-    partialFilterExpression: {
-      attendanceDateKey: { $type: "string" },
-      shiftKey: { $type: "string" },
-    },
-  },
+  { employeeId: 1, attendanceDateKey: 1 },
+  { unique: true },
 );
 
 const Attendance =

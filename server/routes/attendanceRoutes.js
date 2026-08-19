@@ -1,18 +1,22 @@
-// server/routes/attendanceRoutes.js
 import { Router } from "express";
 import { protect } from "../middleware/auth.js";
 import {
+  getTodayAttendance,
+  clockIn,
+  clockOut,
+  getHistory,
   clockInOut,
-  getAttendance,
-  getAttendanceStatus,
 } from "../controllers/attendanceController.js";
 
-const attendanceRouter = Router();
+const router = Router();
 
-attendanceRouter.get("/status", protect, getAttendanceStatus);
+router.get("/today", protect, getTodayAttendance);
+router.get("/history", protect, getHistory);
 
-// keep your existing endpoints
-attendanceRouter.post("/", protect, clockInOut);
-attendanceRouter.get("/", protect, getAttendance);
+router.post("/clock-in", protect, clockIn);
+router.post("/clock-out", protect, clockOut);
 
-export default attendanceRouter;
+// backward compatible
+router.post("/", protect, clockInOut);
+
+export default router;
