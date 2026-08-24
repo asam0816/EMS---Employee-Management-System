@@ -1,39 +1,46 @@
 <div align="center">
 
-<img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=6,11,20&height=230&section=header&text=Employee%20Management%20System&fontSize=42&fontColor=ffffff&animation=fadeIn&fontAlignY=38&desc=Modern%20Full%20Stack%20Workforce%20Management%20Platform&descAlignY=58&descSize=18" width="100%" alt="EMS Header"/>
+  <!-- Hero Header Banner -->
+  <img src="https://capsule-render.vercel.app/api?type=rect&color=0:0F172A,50:1E1B4B,100:0F172A&height=220&section=header&text=⚡%20Employee%20Management%20System&fontSize=40&fontColor=38BDF8&fontAlign=50&fontAlignY=42&desc=Streamlined%20%7C%20Scalable%20%7C%20Enterprise-Ready%20MERN%20Solution&descAlignY=62&descSize=16&descColor=94A3B8&stroke=38BDF8&strokeWidth=1" width="100%" alt="EMS Header" />
 
-<img src="https://readme-typing-svg.demolab.com/?font=Fira+Code&pause=1000&color=A78BFA&center=true&vCenter=true&width=900&lines=Employee+Management+%7C+Attendance+%7C+Payroll;Leave+Management+%7C+Meetings+%7C+Reports;React+%7C+Node.js+%7C+Express.js+%7C+MongoDB;Admin+%26+Employee+Role-Based+Access;Built+for+Modern+Workforce+Management" alt="Typing SVG"/>
+  <!-- Animated Typing Feature Subtitle -->
+  <a href="https://git.io/typing-svg">
+    <img src="https://readme-typing-svg.demolab.com/?font=JetBrains+Mono&size=18&weight=600&pause=1200&color=38BDF8&center=true&vCenter=true&width=750&lines=Core+HR+%7C+Real-Time+Attendance+%7C+Automated+Payroll;Role-Based+Access+Control+(RBAC)+%7C+JWT+Secured;High-Performance+Full-Stack+MERN+Architecture;Comprehensive+Analytics+%26+Employee+Self-Service" alt="Typing Showcase" />
+  </a>
 
-<br/>
+  <br/><br/>
 
-<img src="https://img.shields.io/badge/Frontend-React-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React"/>
-<img src="https://img.shields.io/badge/Backend-Express.js-000000?style=for-the-badge&logo=express&logoColor=white" alt="Express"/>
-<img src="https://img.shields.io/badge/Database-MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white" alt="MongoDB"/>
-<img src="https://img.shields.io/badge/Deployment-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white" alt="Vercel"/>
+  <!-- Primary Call-to-Action Buttons -->
+  <a href="https://techtitans-ems.vercel.app/" target="_blank">
+    <img src="https://img.shields.io/badge/🚀_Launch_Live_App-0284C7?style=for-the-badge&logoColor=white" alt="Live Demo" />
+  </a>
+  <a href="https://techtitans-ems-server.vercel.app/" target="_blank">
+    <img src="https://img.shields.io/badge/⚡_API_Documentation-6366F1?style=for-the-badge&logo=fastapi&logoColor=white" alt="API Server" />
+  </a>
+  <a href="https://github.com/asam0816/EMS-Employee-Management-System" target="_blank">
+    <img src="https://img.shields.io/badge/📦_Source_Code-0F172A?style=for-the-badge&logo=github&logoColor=white" alt="Repository" />
+  </a>
 
-<br/><br/>
+  <br/><br/>
 
-<a href="https://techtitans-ems.vercel.app/">
-<img src="https://img.shields.io/badge/Live%20Application-Open%20EMS-7C3AED?style=for-the-badge&logo=vercel&logoColor=white" alt="Live Application"/>
-</a>
+  <!-- Core Tech Stack Badges -->
+  <img src="https://img.shields.io/badge/React_18-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React" />
+  <img src="https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" alt="Node.js" />
+  <img src="https://img.shields.io/badge/Express.js-000000?style=for-the-badge&logo=express&logoColor=white" alt="Express" />
+  <img src="https://img.shields.io/badge/MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white" alt="MongoDB" />
+  <img src="https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white" alt="Tailwind" />
+  <img src="https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white" alt="Vercel" />
 
-<a href="https://techtitans-ems-server.vercel.app/">
-<img src="https://img.shields.io/badge/Backend%20API-Server-2563EB?style=for-the-badge&logo=node.js&logoColor=white" alt="Backend API"/>
-</a>
+  <br/><br/>
 
-<a href="https://github.com/asam0816/EMS-Employee-Management-System">
-<img src="https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github&logoColor=white" alt="GitHub Repository"/>
-</a>
-
-<br/><br/>
-
-<img src="https://img.shields.io/badge/Status-Active%20Development-22C55E?style=flat-square" alt="Status"/>
-<img src="https://img.shields.io/badge/Architecture-MERN-7C3AED?style=flat-square" alt="MERN"/>
-<img src="https://img.shields.io/badge/Roles-Admin%20%7C%20Employee-0EA5E9?style=flat-square" alt="Roles"/>
-<img src="https://img.shields.io/badge/Auth-JWT-F59E0B?style=flat-square&logo=jsonwebtokens&logoColor=white" alt="JWT"/>
+  <!-- Metadata & Project Status Chips -->
+  <img src="https://img.shields.io/badge/Status-Maintained-10B981?style=flat-square&logo=git&logoColor=white" alt="Maintenance Status" />
+  <img src="https://img.shields.io/badge/Architecture-RESTful_MERN-8B5CF6?style=flat-square" alt="Architecture" />
+  <img src="https://img.shields.io/badge/Security-JWT_%26_Bcrypt-F43F5E?style=flat-square&logo=jsonwebtokens&logoColor=white" alt="Security" />
+  <img src="https://img.shields.io/badge/Access-Admin_|_Manager_|_Employee-0EA5E9?style=flat-square" alt="Role Badges" />
+  <img src="https://img.shields.io/badge/License-MIT-F59E0B?style=flat-square" alt="License" />
 
 </div>
-
 ---
 
 # 🏢 Employee Management System
