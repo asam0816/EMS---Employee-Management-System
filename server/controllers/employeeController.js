@@ -60,6 +60,7 @@ export const createEmployee = async (req, res) => {
       password,
       role,
       bio,
+      shiftKey,
     } = req.body;
 
     // ✅ NIC required
@@ -77,18 +78,31 @@ export const createEmployee = async (req, res) => {
 
     const employee = await Employee.create({
       userId: user._id,
+
       firstName,
       lastName,
       email,
       phone,
+
       nationalIdNumber,
+
       position,
+
       department: department || "Engineering",
+
       basicSalary: Number(basicSalary) || 0,
+
       allowances: Number(allowances) || 0,
+
       deductions: Number(deductions) || 0,
+
       joinDate: new Date(joinDate),
+
       bio: bio || "",
+
+      shiftKey: ["DAY", "NIGHT"].includes(String(shiftKey || "").toUpperCase())
+        ? String(shiftKey).toUpperCase()
+        : "DAY",
     });
 
     await logAudit(req, {
@@ -151,13 +165,30 @@ export const updateEmployee = async (req, res) => {
       phone,
       nationalIdNumber,
       position,
+
       department: department || "Engineering",
+
       basicSalary: Number(basicSalary) || 0,
+
       allowances: Number(allowances) || 0,
+
       deductions: Number(deductions) || 0,
+
       employmentStatus: employmentStatus || "ACTIVE",
+
       bio: bio || "",
-      ...(joinDate ? { joinDate: new Date(joinDate) } : {}),
+
+      ...(shiftKey
+        ? {
+            shiftKey: String(shiftKey).toUpperCase(),
+          }
+        : {}),
+
+      ...(joinDate
+        ? {
+            joinDate: new Date(joinDate),
+          }
+        : {}),
     });
 
     const userUpdate = {

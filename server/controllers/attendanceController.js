@@ -125,9 +125,16 @@ export const getTodayAttendance = async (req, res) => {
 export const clockIn = async (req, res) => {
   try {
     const employee = await mustGetEmployee(req);
-    if (!employee) return res.status(404).json({ error: "Employee not found" });
+
+    if (!employee) {
+      return res.status(404).json({
+        error: "Employee not found",
+      });
+    }
 
     const shift = getActiveShiftContext(new Date());
+
+    // Outside both work shifts
     if (!shift.inWindow) {
       return res.status(403).json({
         error:
@@ -135,19 +142,43 @@ export const clockIn = async (req, res) => {
       });
     }
 
+    // Prevent DAY employee
+    // clocking in at NIGHT,
+    // and vice versa.
+    if (shift.shiftKey !== employee.shiftKey) {
+      const assignedLabel =
+        employee.shiftKey === "NIGHT"
+          ? "Night Shift (07:00 PM - 04:00 AM)"
+          : "Day Shift (08:00 AM - 05:00 PM)";
+
+      return res.status(403).json({
+        error:
+          `You are assigned to ${assignedLabel}. ` +
+          `You cannot clock in during the other shift.`,
+      });
+    }
+
     const open = await Attendance.findOne({
       employeeId: employee._id,
-      checkIn: { $ne: null },
+
+      checkIn: {
+        $ne: null,
+      },
+
       checkOut: null,
+
       attendanceState: "WORKING",
     });
-    if (open)
-      return res
-        .status(400)
-        .json({ error: "Already clocked in. Please clock out." });
+
+    if (open) {
+      return res.status(400).json({
+        error: "Already clocked in. Please clock out.",
+      });
+    }
 
     const existingDay = await Attendance.findOne({
       employeeId: employee._id,
+
       attendanceDateKey: shift.workDateKey,
     });
 
@@ -158,60 +189,87 @@ export const clockIn = async (req, res) => {
             "Attendance already completed for today. Only one shift per day is allowed.",
         });
       }
-      return res
-        .status(400)
-        .json({ error: "Already clocked in for today. Please clock out." });
+
+      return res.status(400).json({
+        error: "Already clocked in for today. Please clock out.",
+      });
     }
 
     const now = new Date();
+
     const lateMinutes = computeLateMinutes(now, shift.shiftStartAt);
+
     const status = lateMinutes > 0 ? "LATE" : "PRESENT";
 
     const doc =
       existingDay ||
       new Attendance({
         employeeId: employee._id,
+
         attendanceDateKey: shift.workDateKey,
       });
 
     doc.shiftKey = shift.shiftKey;
+
     doc.checkIn = now;
+
     doc.checkOut = null;
+
     doc.scheduledEndAt = shift.scheduledEndAt;
+
     doc.attendanceState = "WORKING";
+
     doc.status = status;
+
     doc.lateMinutes = lateMinutes;
 
-    // ✅ IMPORTANT: store NULL, not 0 (so UI doesn't get stuck at 0)
     doc.workingMinutes = null;
+
     doc.workingHours = null;
 
     doc.totalWorkingMinutes = null;
+
     doc.dayType = null;
 
     await doc.save();
 
     await logAudit(req, {
       action: "ATTENDANCE_CLOCK_IN",
+
       entityType: "Attendance",
+
       entityId: doc._id,
+
       entityLabel: `${employee.firstName} ${employee.lastName}`,
+
       meta: {
         attendanceDateKey: doc.attendanceDateKey,
+
         shiftKey: doc.shiftKey,
+
         status: doc.status,
+
         lateMinutes,
       },
     });
 
-    return res.json({ success: true, data: normalize(doc) });
+    return res.json({
+      success: true,
+
+      data: normalize(doc),
+    });
   } catch (e) {
-    if (e?.code === 11000)
-      return res
-        .status(409)
-        .json({ error: "Attendance already exists for today." });
+    if (e?.code === 11000) {
+      return res.status(409).json({
+        error: "Attendance already exists for today.",
+      });
+    }
+
     console.error("clockIn error:", e);
-    return res.status(500).json({ error: "Clock in failed" });
+
+    return res.status(500).json({
+      error: "Clock in failed",
+    });
   }
 };
 
