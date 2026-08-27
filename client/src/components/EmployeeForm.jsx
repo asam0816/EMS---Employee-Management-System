@@ -65,15 +65,22 @@ const EmployeeForm = ({ initialData, onSuccess, onCancel }) => {
           </div>
 
           <div>
-            <label className="block font-medium">Last Name</label>
-            <input
-              name="lastName"
-              type="text"
-              required
-              defaultValue={initialData?.lastName}
+            <label className="block font-medium">Work Shift</label>
+
+            <select
+              name="shiftKey"
+              defaultValue={initialData?.shiftKey || "DAY"}
               className={inputClass}
-              placeholder="Enter last name"
-            />
+              required
+            >
+              <option value="DAY">Day Shift (08:00 AM - 05:00 PM)</option>
+
+              <option value="NIGHT">Night Shift (07:00 PM - 04:00 AM)</option>
+            </select>
+
+            <p className="mt-1.5 text-xs text-slate-400">
+              Missing clock-in reminder: Day 08:30 AM / Night 07:30 PM
+            </p>
           </div>
 
           <div>
