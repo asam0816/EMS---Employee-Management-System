@@ -6,25 +6,40 @@ import { logAudit } from "../utils/auditLogger.js";
 export const getEmployees = async (req, res) => {
   try {
     const { department } = req.query;
+
     const where = {};
-    if (department) where.department = department;
+
+    if (department) {
+      where.department = department;
+    }
 
     const employees = await Employee.find(where)
-      .populate("userId", "email role")
+      .populate("userId", "email role accountStatus")
       .sort({ createdAt: -1 })
       .lean();
 
     const result = employees.map((emp) => ({
       ...emp,
+
       id: emp._id.toString(),
+
       user: emp.userId
-        ? { email: emp.userId.email, role: emp.userId.role }
+        ? {
+            email: emp.userId.email,
+            role: emp.userId.role,
+
+            accountStatus: emp.userId.accountStatus || "ACTIVE",
+          }
         : null,
     }));
 
     return res.json(result);
   } catch (error) {
-    return res.status(500).json({ error: "Failed to fetch employees" });
+    console.error("getEmployees error:", error);
+
+    return res.status(500).json({
+      error: "Failed to fetch employees",
+    });
   }
 };
 
@@ -57,6 +72,7 @@ export const createEmployee = async (req, res) => {
       email,
       password: hashed,
       role: role || "EMPLOYEE",
+      accountStatus: "ACTIVE",
     });
 
     const employee = await Employee.create({
@@ -144,9 +160,25 @@ export const updateEmployee = async (req, res) => {
       ...(joinDate ? { joinDate: new Date(joinDate) } : {}),
     });
 
-    const userUpdate = { email };
-    if (role) userUpdate.role = role;
-    if (password) userUpdate.password = await bcrypt.hash(password, 10);
+    const userUpdate = {
+      email,
+    };
+
+    if (role) {
+      userUpdate.role = role;
+    }
+
+    if (password) {
+      userUpdate.password = await bcrypt.hash(password, 10);
+    }
+
+    // Employee INACTIVE = user SUSPENDED
+    // Employee ACTIVE = user ACTIVE
+    if (employmentStatus) {
+      userUpdate.accountStatus =
+        employmentStatus === "ACTIVE" ? "ACTIVE" : "SUSPENDED";
+    }
+
     await User.findByIdAndUpdate(employee.userId, userUpdate);
 
     await logAudit(req, {
@@ -178,22 +210,132 @@ export const deleteEmployee = async (req, res) => {
     const { id } = req.params;
 
     const employee = await Employee.findById(id);
-    if (!employee) return res.status(404).json({ error: "Employee not found" });
+
+    if (!employee) {
+      return res.status(404).json({
+        error: "Employee not found",
+      });
+    }
 
     employee.isDeleted = true;
     employee.employmentStatus = "INACTIVE";
+
     await employee.save();
+
+    // IMPORTANT:
+    // Deleted employee cannot continue logging in
+    await User.findByIdAndUpdate(employee.userId, {
+      accountStatus: "SUSPENDED",
+    });
 
     await logAudit(req, {
       action: "EMPLOYEE_DEACTIVATED",
       entityType: "Employee",
       entityId: employee._id,
-      entityLabel: `${employee.firstName} ${employee.lastName} (${employee.email})`,
+
+      entityLabel:
+        `${employee.firstName} ` +
+        `${employee.lastName} ` +
+        `(${employee.email})`,
     });
 
-    return res.json({ success: true });
+    return res.json({
+      success: true,
+    });
   } catch (error) {
     console.error("Delete employee error:", error);
-    return res.status(500).json({ error: "Failed to delete employee" });
+
+    return res.status(500).json({
+      error: "Failed to delete employee",
+    });
+  }
+};
+
+export const updateEmployeeAccountStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const accountStatus = String(req.body?.accountStatus || "").toUpperCase();
+
+    if (!["ACTIVE", "SUSPENDED"].includes(accountStatus)) {
+      return res.status(400).json({
+        error: "accountStatus must be ACTIVE or SUSPENDED",
+      });
+    }
+
+    const employee = await Employee.findById(id);
+
+    if (!employee || employee.isDeleted) {
+      return res.status(404).json({
+        error: "Employee not found",
+      });
+    }
+
+    // Prevent an admin employee from accidentally
+    // suspending their own currently logged-in account
+    if (
+      accountStatus === "SUSPENDED" &&
+      String(employee.userId) === String(req.session.userId)
+    ) {
+      return res.status(400).json({
+        error: "You cannot suspend your own account",
+      });
+    }
+
+    const user = await User.findById(employee.userId);
+
+    if (!user) {
+      return res.status(404).json({
+        error: "User account not found",
+      });
+    }
+
+    // Update User login access
+    user.accountStatus = accountStatus;
+
+    await user.save();
+
+    // Synchronize Employee status
+    employee.employmentStatus =
+      accountStatus === "ACTIVE" ? "ACTIVE" : "INACTIVE";
+
+    await employee.save();
+
+    await logAudit(req, {
+      action:
+        accountStatus === "SUSPENDED"
+          ? "EMPLOYEE_ACCOUNT_SUSPENDED"
+          : "EMPLOYEE_ACCOUNT_ACTIVATED",
+
+      entityType: "Employee",
+
+      entityId: employee._id,
+
+      entityLabel:
+        `${employee.firstName} ` +
+        `${employee.lastName} ` +
+        `(${employee.email})`,
+
+      meta: {
+        accountStatus,
+      },
+    });
+
+    return res.json({
+      success: true,
+
+      accountStatus,
+
+      message:
+        accountStatus === "SUSPENDED"
+          ? "Employee account suspended"
+          : "Employee account activated",
+    });
+  } catch (error) {
+    console.error("updateEmployeeAccountStatus error:", error);
+
+    return res.status(500).json({
+      error: "Failed to update account status",
+    });
   }
 };
