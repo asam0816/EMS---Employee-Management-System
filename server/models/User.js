@@ -4,14 +4,39 @@ const userSchema = new mongoose.Schema(
   {
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
-    role: { type: String, enum: ["ADMIN", "EMPLOYEE"], default: "EMPLOYEE" },
-    // ✅ NEW: profile image for all users (admin + employee)
-    image: { type: String, default: null }, // base64 data url
-    // ✅ Forgot password fields
-    resetPasswordTokenHash: { type: String, default: null },
-    resetPasswordTokenExpiresAt: { type: Date, default: null },
+
+    role: {
+      type: String,
+      enum: ["ADMIN", "EMPLOYEE"],
+      default: "EMPLOYEE",
+    },
+
+    // Account access status
+    accountStatus: {
+      type: String,
+      enum: ["ACTIVE", "SUSPENDED"],
+      default: "ACTIVE",
+      index: true,
+    },
+
+    image: {
+      type: String,
+      default: null,
+    },
+
+    resetPasswordTokenHash: {
+      type: String,
+      default: null,
+    },
+
+    resetPasswordTokenExpiresAt: {
+      type: Date,
+      default: null,
+    },
   },
-  { timestamps: true },
+  {
+    timestamps: true,
+  },
 );
 
 const User = mongoose.models.User || mongoose.model("User", userSchema);

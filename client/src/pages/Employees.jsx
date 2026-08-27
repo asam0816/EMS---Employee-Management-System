@@ -97,6 +97,7 @@ justify-center"
                 key={emp.id}
                 employee={emp}
                 onDelete={fetchEmployees}
+                onStatusChange={fetchEmployees}
                 onEdit={(e) => setEditEmployee(e)}
               />
             ))

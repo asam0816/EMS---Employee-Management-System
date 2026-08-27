@@ -22,35 +22,64 @@ export const login = async (req, res) => {
     const { email, password, role_type } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ error: "Email and password are required" });
+      return res.status(400).json({
+        error: "Email and password are required",
+      });
     }
 
-    const user = await User.findOne({ email });
-    if (!user) return res.status(401).json({ error: "Invalid credentials" });
+    const user = await User.findOne({
+      email: String(email).trim(),
+    });
 
-    // ✅ Only enforce role if role_type is sent
+    if (!user) {
+      return res.status(401).json({
+        error: "Invalid credentials",
+      });
+    }
+
+    // Optional role verification
     if (role_type === "admin" && user.role !== "ADMIN") {
-      return res.status(401).json({ error: "Not authorized as admin" });
+      return res.status(401).json({
+        error: "Not authorized as admin",
+      });
     }
+
     if (role_type === "employee" && user.role !== "EMPLOYEE") {
-      return res.status(401).json({ error: "Not authorized as employee" });
+      return res.status(401).json({
+        error: "Not authorized as employee",
+      });
     }
 
     const isValid = await bcrypt.compare(password, user.password);
-    if (!isValid) return res.status(401).json({ error: "Invalid credentials" });
+
+    if (!isValid) {
+      return res.status(401).json({
+        error: "Invalid credentials",
+      });
+    }
+
+    // IMPORTANT:
+    // Check suspension only after the password is verified.
+    if (user.accountStatus === "SUSPENDED") {
+      return res.status(403).json({
+        error: "Your account is not active",
+        code: "ACCOUNT_SUSPENDED",
+      });
+    }
 
     const payload = {
       userId: user._id.toString(),
-      role: user.role, // ADMIN / EMPLOYEE
+      role: user.role,
       email: user.email,
+      accountStatus: user.accountStatus || "ACTIVE",
     };
 
     const token = jwt.sign(payload, process.env.JWT_SECRET, {
       expiresIn: "7d",
     });
 
-    // for audit
     req.session = payload;
+
     await logAudit(req, {
       action: "AUTH_LOGIN",
       entityType: "Auth",
@@ -58,10 +87,16 @@ export const login = async (req, res) => {
       entityLabel: user.email,
     });
 
-    return res.json({ user: payload, token });
+    return res.json({
+      user: payload,
+      token,
+    });
   } catch (error) {
     console.error("Login error:", error);
-    return res.status(500).json({ error: "Login failed" });
+
+    return res.status(500).json({
+      error: "Login failed",
+    });
   }
 };
 
